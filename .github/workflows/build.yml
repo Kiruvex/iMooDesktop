@@ -70,17 +70,22 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
+          # Ubuntu 24.04 (noble) 包名变更：
+          #   libgl1-mesa-glx → libgl1
+          #   libegl1-mesa    → libegl1
+          #   libasound2      → libasound2t64（虚拟包，显式选 t64 版）
           sudo apt-get install -y \
             build-essential \
             patchelf \
-            libgl1-mesa-glx \
-            libegl1-mesa \
+            libgl1 \
+            libegl1 \
+            libglx-mesa0 \
             libnss3 \
             libxkbcommon0 \
             libxcomposite1 \
             libxdamage1 \
             libxrandr2 \
-            libasound2 \
+            libasound2t64 \
             libxtst6 \
             libxshmfence1 \
             libfontconfig1 \
@@ -89,8 +94,9 @@ jobs:
       - name: Install macOS dependencies
         if: runner.os == 'macOS'
         run: |
+          # Nuitka 需要 imageio 把 PNG 图标转成 macOS 原生格式
+          pip install imageio
           brew install patchelf || true
-          # macOS 自带 clang，无需额外安装
 
       - name: Setup MSVC (Windows)
         if: runner.os == 'Windows'
@@ -130,6 +136,8 @@ jobs:
           python build.py --mode ${{ steps.mode.outputs.mode }} --no-frontend --output-name iMooDesktop
         env:
           PYTHONUNBUFFERED: '1'
+          # Windows 控制台默认 cp1252 编码，print 中文会 UnicodeEncodeError
+          PYTHONIOENCODING: 'utf-8'
 
       - name: Verify build output
         shell: bash
