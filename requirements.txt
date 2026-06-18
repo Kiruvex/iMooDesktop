@@ -18,4 +18,6 @@ imageio>=2.30.0
 # 打包（Nuitka 替代 PyInstaller）
 # Nuitka 编译成 C 再编译成二进制，比 PyInstaller 性能更好、更难反编译
 nuitka>=2.0.0
+# Nuitka 可选加速依赖（CI 已装）：加速模块集合运算，缩短编译时间
+ordered-set>=4.1.0
 # Nuitka 依赖：C 编译器（gcc/clang/MSVC），系统级安装，不通过 pip

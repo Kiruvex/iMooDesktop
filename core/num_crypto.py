@@ -1,6 +1,4 @@
-import os
 import random
-import ctypes
 
 def pad_start(s: str, num: int, ch: str) -> str:
     return s.zfill(num)

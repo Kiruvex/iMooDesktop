@@ -345,7 +345,7 @@ jobs:
             --include-module=bridge.app_bridge \
             --include-module=shell.main_window \
             --windows-icon-from-ico=assets/icons/app.ico \
-            --windows-disable-console \
+            --windows-console-mode=disable \
             --windows-company-name=iMooDesktop \
             --windows-product-name="iMoo Desktop" \
             --windows-file-version=1.0.0.0 \
@@ -531,14 +531,43 @@ jobs:
 
       - name: Inspect build output
         run: |
-          echo "=== Looking for .app ==="
-          ls -la build/ | grep -i imoo
-          ls -la build/iMooDesktop.app/ 2>/dev/null || echo "iMooDesktop.app NOT FOUND"
+          echo "=== build/ 目录内容 ==="
+          ls -la build/
+
+          # Nuitka --mode=app 产物用源文件名命名（main.app），不是 iMooDesktop.app
+          # 找到 .app 并重命名为 iMooDesktop.app
+          APP_SRC=""
+          for d in build/*.app; do
+            if [ -d "$d" ]; then
+              APP_SRC="$d"
+              break
+            fi
+          done
+
+          if [ -z "$APP_SRC" ]; then
+            echo "✗ 未找到 .app 产物"
+            find build/ -maxdepth 2 -type d | head -20
+            exit 1
+          fi
+
+          echo "=== 找到 .app: $APP_SRC ==="
+
+          # 重命名为 iMooDesktop.app
+          if [ "$APP_SRC" != "build/iMooDesktop.app" ]; then
+            mv "$APP_SRC" build/iMooDesktop.app
+            echo "重命名: $APP_SRC → build/iMooDesktop.app"
+          fi
+
           echo ""
-          echo "=== Checking data dirs ==="
-          ls -la build/iMooDesktop.app/Contents/frontend/dist/ 2>/dev/null || echo "frontend/dist/ NOT FOUND"
-          ls -la build/iMooDesktop.app/Contents/config.yaml 2>/dev/null || echo "config.yaml NOT FOUND"
-          ls -la build/iMooDesktop.app/Contents/EULA.txt 2>/dev/null || echo "EULA.txt NOT FOUND"
+          echo "=== .app 结构 ==="
+          ls -la build/iMooDesktop.app/
+          ls -la build/iMooDesktop.app/Contents/ 2>/dev/null || echo "Contents/ NOT FOUND"
+          echo ""
+          echo "=== 数据文件检查 ==="
+          # Nuitka --mode=app 数据文件在 Contents/MacOS/ 下
+          ls -la build/iMooDesktop.app/Contents/MacOS/frontend/dist/ 2>/dev/null || echo "frontend/dist/ NOT FOUND"
+          ls -la build/iMooDesktop.app/Contents/MacOS/config.yaml 2>/dev/null || echo "config.yaml NOT FOUND"
+          ls -la build/iMooDesktop.app/Contents/MacOS/EULA.txt 2>/dev/null || echo "EULA.txt NOT FOUND"
           echo ""
           echo "=== Disk usage ==="
           du -sh build/iMooDesktop.app/
@@ -597,6 +626,8 @@ jobs:
             # 6. 删除 __pycache__ / .pyc
             find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
             find . -name "*.pyc" -delete 2>/dev/null || true
+          else
+            echo "⚠ APP_DIR 不存在: $APP_DIR，跳过清理"
           fi
 
           echo "=== 清理后 ==="

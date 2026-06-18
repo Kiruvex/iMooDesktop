@@ -58,7 +58,7 @@ class WatchAPI:
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            print(f"请求失败: {e}")
+            logger.warning(f"请求失败: {e}")
             return {"code": "ERR", "desc": f"网络请求失败: {e}"}
 
     def timestamp_to_date(self, timestamp):
@@ -533,7 +533,7 @@ class WatchAPI:
     def getlike(self, watchid, bind_number, chipid, model):
         friend_info = self.friendslist(watchid, bind_number, chipid, model)
         if not friend_info:
-            print("未获取到好友信息")
+            logger.warning("未获取到好友信息")
             return
         if friend_info['code'] == '000001':
             friend_dict = {item['friendId']: item['name'] for item in friend_info['data']}
@@ -562,7 +562,7 @@ class WatchAPI:
             init_info = self.make_request(url, headers, method='get')
             # make_request 失败返回 {code: ERR}，不能再用 if not init_info 判断
             if not init_info or init_info.get('code') != '000001' or not init_info.get('data'):
-                print("未获取到等级信息")
+                logger.warning("未获取到等级信息")
                 return
 
             levels = {item['watchId']: item['level'] for item in init_info['data']['levelRankInfo']}
@@ -639,7 +639,7 @@ class WatchAPI:
     def getlike_hasid(self, watchid, bind_number, chipid, model):
         friend_info = self.friendslist(watchid, bind_number, chipid, model)
         if not friend_info:
-            print("未获取到好友信息")
+            logger.warning("未获取到好友信息")
             return
         if friend_info['code'] == '000001':
             friend_dict = {item['friendId']: item['name'] for item in friend_info['data']}
@@ -667,7 +667,7 @@ class WatchAPI:
             url = self.config['api_config']['GET_WATCH_INIT_INFO_URL'].format(watchid=watchid, model=model)
             init_info = self.make_request(url, headers, method='get')
             if not init_info or init_info.get('code') != '000001' or not init_info.get('data'):
-                print("未获取到等级信息")
+                logger.warning("未获取到等级信息")
                 return
 
             levels = {item['watchId']: item['level'] for item in init_info['data']['levelRankInfo']}

@@ -7,6 +7,7 @@ import { useDevice } from '../lib/useDevice';
 import { confirm } from '../components/ui';
 import {
   Link2, FileText, Image, Film, Inbox, Check, X, ImagePlus, Trash2, Heart, MessageCircle,
+  ChevronLeft, ChevronRight,
 } from '../lib/icons';
 import type { LucideIcon } from '../lib/icons';
 
@@ -435,6 +436,7 @@ export function MomentPage() {
           }
           rows={3}
           maxLength={500}
+          spellcheck={false}
         />
 
         {/* 图片上传区域 */}
@@ -465,6 +467,7 @@ export function MomentPage() {
                 onCompositionEnd={(e) => setLinkDesc((e.target as HTMLInputElement).value)}
                 placeholder="例如：今天看到的好文章"
                 maxLength={100}
+                spellcheck={false}
               />
             </div>
             <div>
@@ -482,6 +485,7 @@ export function MomentPage() {
                 }}
                 onCompositionEnd={(e) => setLinkUrl((e.target as HTMLInputElement).value)}
                 placeholder="https://example.com/article"
+                spellcheck={false}
               />
             </div>
           </div>
@@ -868,24 +872,24 @@ function ImageLightbox({
             <>
               <button
                 type="button"
-                class="rounded-full bg-white/15 px-3 py-1 text-sm hover:bg-white/25 disabled:opacity-30"
+                class="rounded-full bg-white/15 px-3 py-1 text-sm hover:bg-white/25 disabled:opacity-30 inline-flex items-center justify-center"
                 disabled={index === 0}
                 onClick={() => onNavigate(index - 1)}
                 aria-label="上一张"
               >
-                ‹
+                <ChevronLeft size={16} />
               </button>
               <span class="text-xs">
                 {index + 1} / {urls.length}
               </span>
               <button
                 type="button"
-                class="rounded-full bg-white/15 px-3 py-1 text-sm hover:bg-white/25 disabled:opacity-30"
+                class="rounded-full bg-white/15 px-3 py-1 text-sm hover:bg-white/25 disabled:opacity-30 inline-flex items-center justify-center"
                 disabled={index === urls.length - 1}
                 onClick={() => onNavigate(index + 1)}
                 aria-label="下一张"
               >
-                ›
+                <ChevronRight size={16} />
               </button>
             </>
           )}

@@ -47,6 +47,7 @@ declare module 'lucide-preact' {
   export const ChevronRight: LucideIcon;
   export const ChevronDown: LucideIcon;
   export const ChevronLeft: LucideIcon;
+  export const ChevronUp: LucideIcon;
   export const ArrowRight: LucideIcon;
   export const ArrowLeft: LucideIcon;
   export const Send: LucideIcon;

@@ -4,7 +4,8 @@ import { PageHeader, Button, Alert, EmptyState, ProgressBar, Badge } from '../co
 import { useToast } from '../components/Toast';
 import { useDevice } from '../lib/useDevice';
 import { confirm } from '../components/ui';
-import { Link2, Check, X, CheckCircle2 } from '../lib/icons';
+import { Link2, Check, X, CheckCircle2, ChevronUp, ChevronDown } from '../lib/icons';
+import { copyText } from '../lib/clipboard';
 
 // ===== 类型定义 =====
 
@@ -417,24 +418,11 @@ export function LikeAllPage() {
       logs,
     };
     const json = JSON.stringify(exportData, null, 2);
-    try {
-      await navigator.clipboard.writeText(json);
+    const ok = await copyText(json);
+    if (ok) {
       toast.success('已复制', '结果 JSON 已复制到剪贴板');
-    } catch {
-      // 兜底：用 textarea + execCommand
-      try {
-        const ta = document.createElement('textarea');
-        ta.value = json;
-        ta.style.position = 'fixed';
-        ta.style.opacity = '0';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        toast.success('已复制', '结果 JSON 已复制到剪贴板');
-      } catch (e2) {
-        toast.error('复制失败', errMsg(e2));
-      }
+    } else {
+      toast.error('复制失败', '请检查浏览器剪贴板权限或手动复制');
     }
   };
 
@@ -718,7 +706,9 @@ export function LikeAllPage() {
           aria-expanded={showAdvanced}
         >
           <span class="font-medium">高级选项</span>
-          <span class="text-[var(--color-text-muted)]">{showAdvanced ? '▲' : '▼'}</span>
+          <span class="text-[var(--color-text-muted)] flex items-center">
+            {showAdvanced ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </span>
         </button>
         {showAdvanced && (
           <div class="mt-3 space-y-2 border-t border-[var(--color-border)] pt-3 text-sm text-[var(--color-text-muted)]">

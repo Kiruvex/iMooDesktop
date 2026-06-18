@@ -456,7 +456,11 @@ export function SportPage() {
                   type="number"
                   class="input"
                   value={bmHeight}
-                  onInput={(e) => setBmHeight((e.target as HTMLInputElement).value)}
+                  onInput={(e) => {
+                    if ((e as any).isComposing) return;
+                    setBmHeight((e.target as HTMLInputElement).value);
+                  }}
+                  onCompositionEnd={(e) => setBmHeight((e.target as HTMLInputElement).value)}
                   placeholder="如 170"
                   min={50}
                   max={250}
@@ -480,7 +484,11 @@ export function SportPage() {
                   type="number"
                   class="input"
                   value={bmWeight}
-                  onInput={(e) => setBmWeight((e.target as HTMLInputElement).value)}
+                  onInput={(e) => {
+                    if ((e as any).isComposing) return;
+                    setBmWeight((e.target as HTMLInputElement).value);
+                  }}
+                  onCompositionEnd={(e) => setBmWeight((e.target as HTMLInputElement).value)}
                   placeholder="如 65"
                   min={10}
                   max={300}
@@ -522,7 +530,11 @@ export function SportPage() {
                 type="number"
                 class="input"
                 value={currentValue}
-                onInput={(e) => setFieldValue((e.target as HTMLInputElement).value)}
+                onInput={(e) => {
+                  if ((e as any).isComposing) return;
+                  setFieldValue((e.target as HTMLInputElement).value);
+                }}
+                onCompositionEnd={(e) => setFieldValue((e.target as HTMLInputElement).value)}
                 placeholder={currentTab.placeholder}
                 min={currentTab.min}
                 max={currentTab.max}
@@ -578,7 +590,7 @@ export function SportPage() {
                 class="badge badge-gray cursor-pointer hover:badge-info"
                 onClick={() => setValues((prev) => ({ ...prev, step: String(v) }))}
               >
-                {v.toLocaleString()} 步
+                {v.toLocaleString('zh-CN')} 步
               </button>
             ))}
           </div>

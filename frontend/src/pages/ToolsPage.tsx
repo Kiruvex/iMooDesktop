@@ -3,6 +3,7 @@ import { api } from '../lib/pyapi';
 import { PageHeader, Button, Alert, Badge, EmptyState } from '../components/ui';
 import { useToast } from '../components/Toast';
 import { Copy, SearchX, Star } from '../lib/icons';
+import { copyText } from '../lib/clipboard';
 
 /** appsearch 真实返回结构（参考 core/watch_api.py）：
  *  r.data.searchList 数组，每项含完整应用信息。
@@ -146,32 +147,12 @@ export function ToolsPage() {
     }
   };
 
-  // 剪贴板写入：优先 navigator.clipboard，不支持时降级到 execCommand
+  // 剪贴板写入：统一走 lib/clipboard（含 isSecureContext 检查 + execCommand 兜底）
   const copyToClipboard = async (text: string) => {
-    try {
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-        toast.success('已复制到剪贴板');
-        return;
-      }
-    } catch {
-      // 继续 fallback
-    }
-    try {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(textarea);
-      if (ok) {
-        toast.success('已复制到剪贴板');
-      } else {
-        toast.error('复制失败');
-      }
-    } catch {
+    const ok = await copyText(text);
+    if (ok) {
+      toast.success('已复制到剪贴板');
+    } else {
       toast.error('复制失败');
     }
   };
@@ -203,6 +184,7 @@ export function ToolsPage() {
             inputMode="numeric"
             pattern="[0-9]*"
             maxLength={8}
+            spellcheck={false}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !(e as KeyboardEvent).isComposing && e.keyCode !== 229) calcAdb();
             }}
@@ -242,6 +224,7 @@ export function ToolsPage() {
             inputMode="numeric"
             pattern="[0-9]*"
             maxLength={8}
+            spellcheck={false}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !(e as KeyboardEvent).isComposing && e.keyCode !== 229) calcZj();
             }}
@@ -287,6 +270,7 @@ export function ToolsPage() {
               setSearchInput((e.target as HTMLInputElement).value);
             }}
             placeholder="如：微信、QQ、抖音"
+            spellcheck={false}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !(e as KeyboardEvent).isComposing && e.keyCode !== 229) handleSearch();
             }}

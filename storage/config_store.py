@@ -116,6 +116,12 @@ class ConfigStore:
                 encoding="utf-8",
             )
             os.replace(tmp, self.path)
+            # 保护设备凭据（chipid/bindnumber/imaccountid）：限制文件权限为 owner-only
+            try:
+                os.chmod(self.path, 0o600)
+            except OSError:
+                # Windows/非 POSIX 文件系统不支持 chmod 完整语义，忽略即可
+                pass
             try:
                 self._cache_mtime = self.path.stat().st_mtime
             except OSError:

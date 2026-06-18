@@ -326,25 +326,48 @@ def package(mode: str, output_name: str) -> None:
     finally:
         stop_event.set()
 
-    # 查找产物
-    is_macos_app = platform.system() == "Darwin"
-    if is_macos_app:
-        # macOS --mode=app 产物是 .app 目录（内含 MacOS/iMooDesktop 可执行文件）
-        product = BUILD_DIR / f"{output_name}.app"
+    # 查找产物（Nuitka 用源文件名 main 命名 .dist/.app，不是 --output-filename 的值）
+    is_macos = platform.system() == "Darwin"
+    is_app_mode = is_macos or mode == "app"
+    if is_app_mode:
+        # macOS --mode=app 产物是 .app 目录；Nuitka 用源文件名命名，可能是 main.app 或 iMooDesktop.app
+        product = None
+        for app in BUILD_DIR.glob("*.app"):
+            product = app
+            break
+        if product is None:
+            product = BUILD_DIR / f"{output_name}.app"  # fallback
         dist_dir = product  # 整个 .app 就是产物目录
     elif mode == "onefile":
         ext = ".exe" if platform.system() == "Windows" else ".bin"
         product = BUILD_DIR / f"{output_name}{ext}"
         if not product.exists():
-            # onefile 可能没有扩展名
-            product = BUILD_DIR / output_name
+            # Nuitka 可能用 main.bin / main.exe
+            for f in BUILD_DIR.glob(f"main{ext}"):
+                product = f
+                break
+            if not product.exists():
+                product = BUILD_DIR / output_name
     else:
-        product = BUILD_DIR / f"{output_name}.dist" / output_name
+        # standalone: Nuitka 产出 main.dist/
+        dist_dir = None
+        for d in BUILD_DIR.glob("*.dist"):
+            dist_dir = d
+            break
+        if dist_dir is None:
+            dist_dir = BUILD_DIR / f"{output_name}.dist"  # fallback
+        # 可执行文件在 .dist 目录内
         if platform.system() == "Windows":
-            product = product.with_suffix(".exe")
+            product = dist_dir / f"{output_name}.exe"
+            if not product.exists():
+                product = dist_dir / "main.exe"
+        else:
+            product = dist_dir / output_name
+            if not product.exists():
+                product = dist_dir / "main"
 
     if product.exists():
-        if is_macos_app:
+        if is_app_mode:
             total = sum(f.stat().st_size for f in product.rglob("*") if f.is_file())
             print(f"\n✓ 打包成功！")
             print(f"  产物: {product}")

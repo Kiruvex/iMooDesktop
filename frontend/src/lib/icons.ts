@@ -23,7 +23,7 @@ export {
   // 导航
   Home, Smartphone, User, Activity, Globe, MessageCircle, Star, Wrench, Settings,
   // 操作
-  X, Menu, RefreshCw, Trash2, Edit, Plus, Minus, Check, ChevronRight, ChevronDown, ChevronLeft,
+  X, Menu, RefreshCw, Trash2, Edit, Plus, Minus, Check, ChevronRight, ChevronDown, ChevronLeft, ChevronUp,
   ArrowRight, ArrowLeft, Send, Copy, Download, Upload, Search, Filter, Eye, EyeOff,
   // 状态
   CheckCircle2, CheckCheck, AlertCircle, AlertTriangle, AlertOctagon, Info, XCircle,

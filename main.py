@@ -33,6 +33,14 @@ from storage.cache_store import CacheStore
 from storage.log_store import LogStore
 from bridge.app_bridge import AppBridge
 
+# Windows 控制台默认 cp1252/gbk，print 中文会 UnicodeEncodeError
+# 强制 stdout/stderr 用 utf-8（Python 3.7+ 支持 reconfigure）
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 
 def _find_eula_path() -> Path:
     """定位 EULA.txt：Nuitka 打包后用 sys.argv[0] 目录，开发模式用 ROOT"""

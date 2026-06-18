@@ -14,8 +14,8 @@ api_config:
   SPORT_URL: https://sport.watch.okii.com/sport-service/sport/i25/uploadWatchSportRecord?uuid=0
   PERSONSIGN_URL: https://api.watch.okii.com/social-service/personalInfo/updateSignature?uuid=0
   CHANGE_URL: https://watch.okii.com/watchaccount/bindnumber?uuid=0
+  # 以下两项已废弃：momentpic 4 步流程用 watch_api.py 内硬编码 URL，不从 config 读
   UPLOAD_DOMAIN: http://upload.qiniup.com
-  # 七牛 CDN 域名（用于拼接图片可访问 URL，若七牛响应自带 url 字段则优先用响应）
   QINIU_CDN_DOMAIN: https://qpic.cn
   GET_PERSONAL_INFO_URL: https://api.watch.okii.com/social-service/personalInfo/getPersonalInfoUnite?uuid=0
   APP_SEARCH_URL: https://api.watch.okii.com/appstore/search/result?uuid=0

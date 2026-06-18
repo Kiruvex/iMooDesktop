@@ -81,8 +81,10 @@
 /* ===== 全局基础 ===== */
 :root {
   color-scheme: light;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", "Source Han Sans SC",
+    system-ui, sans-serif;
   font-size: 14px;
   line-height: 1.6;
   color: var(--color-text);
@@ -715,7 +717,9 @@ select.input {
 
 /* ===== 工具类 ===== */
 .text-mono {
-  font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, monospace;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono",
+    "DejaVu Sans Mono", "Liberation Mono",
+    Menlo, monospace;
   font-variant-numeric: tabular-nums;
 }
 .text-truncate {
@@ -805,5 +809,13 @@ select:focus:not(:focus-visible) {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* 无合成器的 Linux 桌面（XFCE/i3 等）backdrop-filter 失效，
+   提高 opacity 保证可读性 */
+@supports not (backdrop-filter: blur(8px)) {
+  header {
+    background: var(--color-surface) !important;
   }
 }

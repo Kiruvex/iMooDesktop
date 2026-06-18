@@ -916,8 +916,9 @@ class AppBridge(QObject):
         import sys as _sys
         from pathlib import Path as _Path
         # 定位 EULA.txt（与 main.py 的 _find_eula_path 同逻辑）
+        # 注意：函数内 dir() 返回局部变量，必须用 globals() 才能取到模块级 __compiled__
         candidates = []
-        if "__compiled__" in dir() or getattr(_sys, "frozen", False):
+        if "__compiled__" in globals() or getattr(_sys, "frozen", False):
             candidates.append(_Path(_sys.argv[0]).parent / "EULA.txt")
             if getattr(_sys, "_MEIPASS", None):
                 candidates.append(_Path(_sys._MEIPASS) / "EULA.txt")

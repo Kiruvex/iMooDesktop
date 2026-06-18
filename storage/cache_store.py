@@ -90,6 +90,12 @@ class CacheStore:
                 encoding="utf-8",
             )
             os.replace(tmp, self.path)
+            # 缓存中可能含设备凭据相关数据（如好友列表带 imaccountid），限制权限为 owner-only
+            try:
+                os.chmod(self.path, 0o600)
+            except OSError:
+                # Windows/非 POSIX 文件系统不支持 chmod 完整语义，忽略即可
+                pass
         except Exception as e:
             logger.error(f"缓存落盘失败: {e}")
 

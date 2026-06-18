@@ -16,6 +16,11 @@ main.bin
 main.exe
 onefile_*.dist/
 *.bin
+*.app
+iMooDesktop.dist/
+iMooDesktop.bin
+iMooDesktop.exe
+iMooDesktop.app
 
 # 前端
 frontend/node_modules/

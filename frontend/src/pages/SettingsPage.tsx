@@ -254,7 +254,11 @@ export function SettingsPage({ device }: SettingsPageProps) {
                 type="text"
                 class="input text-mono text-xs"
                 value={chipid}
-                onInput={(e) => setChipid((e.target as HTMLInputElement).value)}
+                onInput={(e) => {
+                  if ((e as any).isComposing) return;
+                  setChipid((e.target as HTMLInputElement).value);
+                }}
+                onCompositionEnd={(e) => setChipid((e.target as HTMLInputElement).value)}
                 placeholder="00000070000001002ac5652e00000005"
                 inputMode="text"
                 autoComplete="off"
@@ -269,7 +273,11 @@ export function SettingsPage({ device }: SettingsPageProps) {
                 type="text"
                 class="input text-mono text-xs"
                 value={bindnumber}
-                onInput={(e) => setBindnumber((e.target as HTMLInputElement).value)}
+                onInput={(e) => {
+                  if ((e as any).isComposing) return;
+                  setBindnumber((e.target as HTMLInputElement).value);
+                }}
+                onCompositionEnd={(e) => setBindnumber((e.target as HTMLInputElement).value)}
                 placeholder="akprrlzltxpbmdog"
                 inputMode="text"
                 autoComplete="off"

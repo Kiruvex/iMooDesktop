@@ -55,7 +55,8 @@ class MainWindow(QMainWindow):
 
         # 设置窗口图标（如果存在）
         # Nuitka 打包后 __file__ 可能指向编译时源码路径，用 sys.argv[0] 定位运行时目录更可靠
-        if "__compiled__" in dir() or getattr(sys, "frozen", False):
+        # 注意：函数内 dir() 返回局部变量，必须用 globals() 才能取到模块级 __compiled__
+        if "__compiled__" in globals() or getattr(sys, "frozen", False):
             icon_path = Path(sys.argv[0]).parent / "assets" / "icons" / "app.png"
         else:
             icon_path = Path(__file__).parent.parent / "assets" / "icons" / "app.png"
@@ -122,10 +123,11 @@ class MainWindow(QMainWindow):
             if getattr(sys, "frozen", False):
                 # PyInstaller 打包后
                 base = Path(sys._MEIPASS) / "frontend" / "dist"
-            elif "__compiled__" in dir():
+            elif "__compiled__" in globals():
                 # Nuitka 打包后 __file__ 可能指向编译时源码路径；
                 # 用 sys.argv[0] 定位运行时目录更可靠
                 # （standalone: sys.argv[0] 是 .dist/iMooDesktop，parent 即 .dist 目录）
+                # 注意：函数内 dir() 返回局部变量，必须用 globals() 才能取到模块级 __compiled__
                 base = Path(sys.argv[0]).parent / "frontend" / "dist"
             else:
                 # 开发模式下 __file__ 指向源码目录，parent.parent 是项目根

@@ -7,6 +7,7 @@ import {
   BatteryLow, BatteryMedium, BatteryFull,
   Watch, Link2, RefreshCw, ClipboardCopy, CircleDot, Circle,
 } from '../lib/icons';
+import { copyText } from '../lib/clipboard';
 
 interface DeviceInfoPageProps {
   device?: DeviceInfo | null;
@@ -268,33 +269,7 @@ export function DeviceInfoPage({ device }: DeviceInfoPageProps) {
       return;
     }
 
-    let copied = false;
-    // 优先走现代 Clipboard API
-    try {
-      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-        await navigator.clipboard.writeText(text);
-        copied = true;
-      }
-    } catch (e) {
-      console.warn('clipboard API failed, fallback', e);
-    }
-    // fallback: execCommand('copy')
-    if (!copied) {
-      try {
-        const ta = document.createElement('textarea');
-        ta.value = text;
-        ta.style.position = 'fixed';
-        ta.style.top = '-9999px';
-        ta.setAttribute('readonly', '');
-        document.body.appendChild(ta);
-        ta.select();
-        const ok2 = document.execCommand('copy');
-        document.body.removeChild(ta);
-        copied = ok2;
-      } catch (e) {
-        console.warn('execCommand copy failed', e);
-      }
-    }
+    const copied = await copyText(text);
 
     if (copied) {
       toast.success('设备信息已复制到剪贴板', `${text.length} 字节`);

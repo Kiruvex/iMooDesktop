@@ -7,7 +7,7 @@ import { useToast } from '../components/Toast';
 import { useDevice } from '../lib/useDevice';
 import {
   Link2, Search, Users, ArrowLeft, MessageCircle, MessageSquare,
-  CheckCheck, RotateCcw, Sparkles, Loader2,
+  CheckCheck, RotateCcw, Sparkles, Loader2, ChevronUp, ChevronDown,
 } from '../lib/icons';
 
 /** 单条消息（仅记录"我发送的"，对手表 IM 单向场景） */
@@ -325,7 +325,7 @@ export function IMPage() {
     return <EmptyState icon={<Link2 size={48} />} title="尚未绑定设备" desc="请先在设置中绑定设备" />;
   }
 
-  // ===== 好友头像（无图时取首字 / 👤） =====
+  // ===== 好友头像（无图时取首字 / 占位字符） =====
   const renderAvatar = (f: Friend, size: number = 36) => {
     if (f.headImg) {
       return (
@@ -373,7 +373,10 @@ export function IMPage() {
             <Badge level="info">IM 协议</Badge>
             <span>消息通过 TLV 协议直连 IM 服务器</span>
           </span>
-          <span class="text-xs text-[var(--color-text-muted)]">{protoOpen ? '收起 ▲' : '展开 ▼'}</span>
+          <span class="text-xs text-[var(--color-text-muted)] flex items-center gap-1">
+            {protoOpen ? '收起' : '展开'}
+            {protoOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </span>
         </button>
         {protoOpen && (
           <div id="im-proto-detail" class="mt-3">
@@ -408,7 +411,11 @@ export function IMPage() {
                 class="input pl-8"
                 placeholder="搜索好友 / 关系 / ID"
                 value={search}
-                onInput={(e) => setSearch((e.target as HTMLInputElement).value)}
+                onInput={(e) => {
+                  if ((e as any).isComposing) return;
+                  setSearch((e.target as HTMLInputElement).value);
+                }}
+                onCompositionEnd={(e) => setSearch((e.target as HTMLInputElement).value)}
                 aria-label="搜索好友"
               />
               <span
