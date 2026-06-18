@@ -12,6 +12,9 @@ PyYAML>=6.0
 # 图片处理（动态图片上传：Pillow 转 WebP）
 Pillow>=10.0.0
 
+# macOS 图标转换（Nuitka 用 imageio 把 PNG 转成 macOS 原生图标格式）
+imageio>=2.30.0
+
 # 打包（Nuitka 替代 PyInstaller）
 # Nuitka 编译成 C 再编译成二进制，比 PyInstaller 性能更好、更难反编译
 nuitka>=2.0.0

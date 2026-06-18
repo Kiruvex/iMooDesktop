@@ -29,6 +29,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Windows 控制台默认 cp1252，print 中文会 UnicodeEncodeError；
+# 强制 stdout/stderr 用 utf-8（Python 3.7+ 支持 reconfigure）
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 ROOT = Path(__file__).parent.resolve()
 FRONTEND_DIR = ROOT / "frontend"
 BUILD_DIR = ROOT / "build"
@@ -36,21 +44,68 @@ DIST_DIR = ROOT / "dist"
 
 
 def run(cmd: list[str], cwd: Path | None = None, check: bool = True) -> int:
-    """运行命令，实时输出"""
+    """运行命令，实时输出。Windows 不用 shell=True（避免 cmd.exe 解析 40+ 参数出错）。
+    用 Popen + stdout/stderr 直接继承父进程，保证实时输出。"""
     print(f"\n$ {' '.join(cmd)}")
-    result = subprocess.run(cmd, cwd=cwd, shell=False)
-    if check and result.returncode != 0:
-        raise SystemExit(f"命令失败 (exit {result.returncode}): {' '.join(cmd)}")
-    return result.returncode
+    # 不用 shell=True：Windows 上 cmd.exe 解析长参数列表会出错
+    # Popen 在 Windows 上会自动找 .exe（如 python.exe），不需要 shell
+    proc = subprocess.Popen(
+        cmd,
+        cwd=cwd,
+        shell=False,
+        stdout=None,  # 直接继承父进程 stdout（实时打印，无缓冲）
+        stderr=None,  # 直接继承父进程 stderr
+    )
+    proc.wait()
+    if check and proc.returncode != 0:
+        raise SystemExit(f"命令失败 (exit {proc.returncode}): {' '.join(cmd)}")
+    return proc.returncode
+
+
+def _heartbeat(msg: str, stop_event):
+    """后台线程：每 30 秒打印一次心跳，让用户知道没卡死"""
+    import time
+    n = 0
+    while not stop_event.wait(30):
+        n += 1
+        print(f"  [{n*30}s] {msg}（仍在运行，Nuitka 编译耗时长属正常）", flush=True)
+
+
+def find_command(*names: str) -> str | None:
+    """在 PATH 中找第一个可用的命令（用于 bun/npm/npx fallback）"""
+    from shutil import which
+    for name in names:
+        path = which(name)
+        if path:
+            return name
+    return None
 
 
 def build_frontend() -> None:
     """构建前端静态资源"""
     print("\n===== 构建前端 =====")
+
+    # 探测可用的前端工具：bun > npm
+    pkg_mgr = find_command("bun", "npm")
+    if not pkg_mgr:
+        raise SystemExit(
+            "未找到 bun 或 npm，请先安装：\n"
+            "  bun:  https://bun.sh/  (推荐，更快)\n"
+            "  npm:  https://nodejs.org/"
+        )
+    print(f"使用前端工具: {pkg_mgr}")
+
     if not (FRONTEND_DIR / "node_modules").exists():
         print("安装前端依赖...")
-        run(["bun", "install"], cwd=FRONTEND_DIR)
-    run(["bun", "run", "build"], cwd=FRONTEND_DIR)
+        if pkg_mgr == "bun":
+            run(["bun", "install"], cwd=FRONTEND_DIR)
+        else:
+            run(["npm", "install"], cwd=FRONTEND_DIR)
+
+    if pkg_mgr == "bun":
+        run(["bun", "run", "build"], cwd=FRONTEND_DIR)
+    else:
+        run(["npm", "run", "build"], cwd=FRONTEND_DIR)
 
     dist = FRONTEND_DIR / "dist"
     if not (dist / "index.html").exists():
@@ -111,7 +166,14 @@ def get_nuitka_args(mode: str, output_name: str) -> list[str]:
     args = [sys.executable, "-m", "nuitka"]
 
     # ===== 模式 =====
-    if mode == "onefile":
+    # macOS 上 QtWebEngine 要求必须打包成 .app bundle（"unless in an application bundle"），
+    # 所以 macOS 一律用 --mode=app（生成 .app 目录），忽略用户传的 standalone/onefile。
+    # 非 macOS 上显式传 --mode app 也走 .app bundle（理论上 Linux 也支持，但未测试）。
+    is_macos = platform.system() == "Darwin"
+    if is_macos or mode == "app":
+        # --mode=app 等价于 standalone + 生成 .app bundle，QtWebEngine 才能正常加载
+        args.append("--mode=app")
+    elif mode == "onefile":
         args.append("--onefile")
     else:
         args.append("--standalone")
@@ -144,7 +206,7 @@ def get_nuitka_args(mode: str, output_name: str) -> list[str]:
         args.append(f"--include-package={pkg}")
 
     # 第三方依赖
-    for pkg in ["PIL", "yaml", "requests"]:
+    for pkg in ["PIL", "yaml", "requests", "imageio"]:
         args.append(f"--include-package={pkg}")
 
     # 项目模块（显式包含，避免 Nuitka 静态分析漏掉）
@@ -207,16 +269,26 @@ def package(mode: str, output_name: str) -> None:
     print(f"Python: {sys.version.split()[0]}")
     print(f"项目根: {ROOT}")
 
-    # 检查 nuitka
+    # 检查 nuitka（加 timeout + 心跳，首次运行可能要下载 scons 依赖）
+    print("检查 Nuitka 版本（首次可能要下载依赖，请稍候）...")
+    import threading
+    stop_hb = threading.Event()
+    hb = threading.Thread(target=_heartbeat, args=("Nuitka 版本检查", stop_hb), daemon=True)
+    hb.start()
     try:
         nuitka_ver = subprocess.check_output(
             [sys.executable, "-m", "nuitka", "--version"],
             stderr=subprocess.STDOUT,
             text=True,
+            timeout=120,
         ).strip().split("\n")[0]
         print(f"Nuitka: {nuitka_ver}")
+    except subprocess.TimeoutExpired:
+        print("Nuitka: 版本检查超时（首次运行可能要下载依赖），继续尝试打包...")
     except (subprocess.CalledProcessError, FileNotFoundError):
         raise SystemExit("Nuitka 未安装，请运行: pip install nuitka")
+    finally:
+        stop_hb.set()
 
     # 检查前端
     if not (FRONTEND_DIR / "dist" / "index.html").exists():
@@ -238,12 +310,29 @@ def package(mode: str, output_name: str) -> None:
     for i in range(0, len(args), 4):
         print("  " + " ".join(args[i : i + 4]))
 
-    # 执行
+    # 执行（加心跳线程，让用户知道没卡死）
     print(f"\n开始编译（可能需要 10-30 分钟，取决于项目大小和 CPU）...")
-    run(args, cwd=ROOT)
+    print("提示：首次编译会下载 Nuitka 依赖（ccache 等），较慢；后续增量编译会快很多。")
+    print("      如果长时间无输出，Nuitka 正在做静态分析/C 编译，属正常现象。")
+    print("      下面每 30 秒会打印心跳，确认进程仍在运行。")
+
+    import threading
+    stop_event = threading.Event()
+    hb = threading.Thread(target=_heartbeat, args=("Nuitka 编译中", stop_event), daemon=True)
+    hb.start()
+
+    try:
+        run(args, cwd=ROOT)
+    finally:
+        stop_event.set()
 
     # 查找产物
-    if mode == "onefile":
+    is_macos_app = platform.system() == "Darwin"
+    if is_macos_app:
+        # macOS --mode=app 产物是 .app 目录（内含 MacOS/iMooDesktop 可执行文件）
+        product = BUILD_DIR / f"{output_name}.app"
+        dist_dir = product  # 整个 .app 就是产物目录
+    elif mode == "onefile":
         ext = ".exe" if platform.system() == "Windows" else ".bin"
         product = BUILD_DIR / f"{output_name}{ext}"
         if not product.exists():
@@ -255,19 +344,173 @@ def package(mode: str, output_name: str) -> None:
             product = product.with_suffix(".exe")
 
     if product.exists():
-        size_mb = product.stat().st_size / 1024 / 1024
-        print(f"\n✓ 打包成功！")
-        print(f"  产物: {product}")
-        print(f"  大小: {size_mb:.1f} MB")
+        if is_macos_app:
+            total = sum(f.stat().st_size for f in product.rglob("*") if f.is_file())
+            print(f"\n✓ 打包成功！")
+            print(f"  产物: {product}")
+            print(f"  大小: {total / 1024 / 1024:.1f} MB (.app 目录)")
+            # macOS 清理 .app/Contents/MacOS 目录
+            cleanup_dir = product / "Contents" / "MacOS"
+            if cleanup_dir.exists():
+                print(f"\n===== 清理产物（省体积）=====")
+                before = sum(f.stat().st_size for f in product.rglob("*") if f.is_file())
+                cleanup_build_artifacts(cleanup_dir)
+                after = sum(f.stat().st_size for f in product.rglob("*") if f.is_file())
+                print(f"  清理前: {before / 1024 / 1024:.1f} MB → 清理后: {after / 1024 / 1024:.1f} MB")
+                print(f"  节省: {(before - after) / 1024 / 1024:.1f} MB")
+        else:
+            size_mb = product.stat().st_size / 1024 / 1024
+            print(f"\n✓ 打包成功！")
+            print(f"  产物: {product}")
+            print(f"  大小: {size_mb:.1f} MB")
 
-        # standalone 模式整个 .dist 目录的大小
-        if mode != "onefile":
-            dist_dir = product.parent
-            total = sum(f.stat().st_size for f in dist_dir.rglob("*") if f.is_file())
-            print(f"  .dist 目录总大小: {total / 1024 / 1024:.1f} MB")
+            # standalone 模式整个 .dist 目录的大小 + 清理
+            if mode != "onefile":
+                dist_dir = product.parent
+                before = sum(f.stat().st_size for f in dist_dir.rglob("*") if f.is_file())
+                print(f"\n===== 清理产物（省体积）=====")
+                cleanup_build_artifacts(dist_dir)
+                after = sum(f.stat().st_size for f in dist_dir.rglob("*") if f.is_file())
+                print(f"  清理前: {before / 1024 / 1024:.1f} MB → 清理后: {after / 1024 / 1024:.1f} MB")
+                print(f"  节省: {(before - after) / 1024 / 1024:.1f} MB")
+                print(f"  最终 .dist 目录大小: {after / 1024 / 1024:.1f} MB")
     else:
         print(f"\n⚠ 未找到打包产物: {product}")
         print(f"  请检查 {BUILD_DIR} 目录")
+
+
+def cleanup_build_artifacts(dist_dir: Path) -> None:
+    """清理 Nuitka 产物中未使用的模块/翻译文件/调试符号，省 30-50% 体积"""
+    import shutil
+    import subprocess
+
+    if not dist_dir.is_dir():
+        return
+
+    system = platform.system()
+    print(f"  清理目录: {dist_dir}")
+
+    # 1. 删除未使用的 PySide6 模块（只保留 8 个必需模块）
+    #    Qt3D/QtCharts/QtMultimedia/QtQml/QtQuick/QtSql/QtSvg/QtTest 等 30+ 个
+    KEEP_QT = {
+        "QtCore", "QtGui", "QtWidgets", "QtNetwork",
+        "QtWebEngineWidgets", "QtWebEngineCore", "QtWebChannel", "QtPrintSupport",
+    }
+    pyside_dir = dist_dir / "PySide6"
+    if pyside_dir.is_dir():
+        # 删除 .so / .pyd / .dll
+        for f in pyside_dir.iterdir():
+            if not f.is_file():
+                continue
+            name = f.name
+            # 匹配 Qt 开头的模块文件
+            for ext in (".so", ".pyd", ".dll"):
+                if name.startswith("Qt") and name.endswith(ext):
+                    mod = name[:-len(ext)]
+                    # 处理 QtXxx.abi3.so 这种带 abi3 的
+                    mod = mod.split(".")[0]
+                    if mod not in KEEP_QT:
+                        print(f"    删除 {f.relative_to(dist_dir)}")
+                        f.unlink()
+                    break
+        # 删除子模块目录
+        UNUSED_QT_DIRS = [
+            "Qt3DAnimation", "Qt3DCore", "Qt3DExtras", "Qt3DInput", "Qt3DLogic",
+            "Qt3DRender", "QtBluetooth", "QtCharts", "QtDataVisualization",
+            "QtDataVisualizationQml", "QtDesigner", "QtHelp", "QtLocation",
+            "QtMultimedia", "QtMultimediaWidgets", "QtNetworkAuth", "QtNfc",
+            "QtPositioning", "QtQml", "QtQuick", "QtQuick3D", "QtQuickControls2",
+            "QtQuickWidgets", "QtRemoteObjects", "QtScxml", "QtSensors",
+            "QtSerialBus", "QtSerialPort", "QtSpatialAudio", "QtSql",
+            "QtStateMachine", "QtSvg", "QtSvgWidgets", "QtTest", "QtTextToSpeech",
+            "QtUiTools", "QtVirtualKeyboard", "QtWebSockets", "QtXml",
+            "examples", "docs",
+        ]
+        for d_name in UNUSED_QT_DIRS:
+            d = pyside_dir / d_name
+            if d.exists():
+                print(f"    删除 {d.relative_to(dist_dir)}/")
+                shutil.rmtree(d, ignore_errors=True)
+
+    # 2. strip 调试符号（Linux/macOS，省 20-40MB）
+    if system in ("Linux", "Darwin"):
+        print("  strip 调试符号...")
+        so_files = list(dist_dir.rglob("*.so")) + list(dist_dir.rglob("*.dylib"))
+        for so in so_files:
+            try:
+                if system == "Linux":
+                    subprocess.run(["strip", "--strip-unneeded", str(so)],
+                                 capture_output=True, timeout=10)
+                else:  # Darwin
+                    subprocess.run(["strip", "-x", str(so)],
+                                 capture_output=True, timeout=10)
+            except Exception:
+                pass
+
+    # 3. 清理翻译文件（只保留中英文）
+    print("  清理翻译文件...")
+    for qm in dist_dir.glob("*.qm"):
+        if "zh" not in qm.name and "en" not in qm.name:
+            qm.unlink()
+    # 常见 Qt 工具翻译直接删
+    for pat in ("assistant_*.qm", "designer_*.qm", "linguist_*.qm"):
+        for f in dist_dir.glob(pat):
+            f.unlink()
+    trans_dir = pyside_dir / "translations"
+    if trans_dir.is_dir():
+        for qm in trans_dir.glob("*.qm"):
+            if "zh" not in qm.name and "en" not in qm.name:
+                qm.unlink()
+    locales_dir = dist_dir / "qtwebengine_locales"
+    if locales_dir.is_dir():
+        for pak in locales_dir.glob("*.pak"):
+            if "zh" not in pak.name and "en" not in pak.name:
+                pak.unlink()
+
+    # 4. 删除 imageio 运行时（仅打包时用于图标转换，运行时不需要）
+    for p in dist_dir.iterdir():
+        if p.name.startswith("imageio"):
+            print(f"    删除 {p.relative_to(dist_dir)}")
+            if p.is_dir():
+                shutil.rmtree(p, ignore_errors=True)
+            else:
+                p.unlink()
+
+    # 5. 清理 Pillow 未用插件（Linux/macOS，保留常用格式）
+    if system in ("Linux", "Darwin"):
+        pil_dir = dist_dir / "PIL"
+        if pil_dir.is_dir():
+            KEEP_PIL = {
+                "_webp", "_png", "_jpeg", "_gif", "_bmp", "_tiff", "_imaging",
+                "Image", "ImageFile", "ImageMode", "ImagePalette", "ImageSequence",
+                "ImageColor", "ImageFilter", "ImageFont", "ImageDraw", "ImageChops",
+                "ImageOps", "ImageStat", "ImageTransform", "ImageCms", "ImageMath",
+                "ImageWin", "BmpImagePlugin", "JpegImagePlugin", "PngImagePlugin",
+                "GifImagePlugin", "TiffImagePlugin", "WebPImagePlugin",
+                "IcoImagePlugin", "PpmImagePlugin",
+            }
+            for f in pil_dir.iterdir():
+                if f.is_file() and f.suffix == ".py":
+                    mod = f.stem
+                    if mod not in KEEP_PIL:
+                        f.unlink()
+                        # 删 .pyc
+                        pyc = f.with_suffix(".pyc")
+                        if pyc.exists():
+                            pyc.unlink()
+
+    # 6. 清理 Python 标准库残余
+    for name in ("lib2to3", "ensurepip", "venv", "idlelib", "distutils", "pydoc_data"):
+        for p in dist_dir.iterdir():
+            if p.name == name or p.name.startswith(name + "-") or p.name.startswith(name + "_"):
+                if p.is_dir():
+                    shutil.rmtree(p, ignore_errors=True)
+
+    # 7. 删除 __pycache__ / .pyc
+    for cache in dist_dir.rglob("__pycache__"):
+        shutil.rmtree(cache, ignore_errors=True)
+    for pyc in dist_dir.rglob("*.pyc"):
+        pyc.unlink()
 
 
 def main():
@@ -278,9 +521,11 @@ def main():
     )
     parser.add_argument(
         "--mode",
-        choices=["standalone", "onefile"],
+        choices=["standalone", "onefile", "app"],
         default="standalone",
-        help="打包模式: standalone=独立目录(启动快), onefile=单文件(易分发)",
+        help="打包模式: standalone=独立目录(启动快), onefile=单文件(易分发), "
+             "app=macOS .app bundle（QtWebEngine 在 macOS 必须用此模式；"
+             "macOS 上传 standalone/onefile 也会被自动改写为 app）",
     )
     parser.add_argument(
         "--onefile",
