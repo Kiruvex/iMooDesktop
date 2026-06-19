@@ -2,8 +2,9 @@
 // 见 plan.md 5. electron/core/menu.ts
 // UI 规范:无 emoji,lucide 图标(菜单用原生,不用 lucide)
 
-import { Menu, app, shell, BrowserWindow } from 'electron';
+import { Menu, app, shell, BrowserWindow, dialog } from 'electron';
 import { APP_META } from '../../shared/types';
+import { paths } from './paths';
 
 export function buildAppMenu(): Menu {
   const isDev = !app.isPackaged;
@@ -70,7 +71,6 @@ export function buildAppMenu(): Menu {
               {
                 label: '开发者:打开日志目录',
                 click: () => {
-                  const { paths } = require('./paths');
                   shell.openPath(paths.logs);
                 },
               },
@@ -84,7 +84,6 @@ export function buildAppMenu(): Menu {
 }
 
 function showAboutDialog(): void {
-  const { dialog } = require('electron');
   dialog.showMessageBox(BrowserWindow.getFocusedWindow() ?? undefined!, {
     type: 'info',
     title: '关于 iMooDesktop',

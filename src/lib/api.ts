@@ -206,6 +206,111 @@ export interface AdbDdMatchResult {
   skipped: string[];
 }
 
+// ========== 文件管理相关类型 ==========
+
+/** 文件条目(对应 ls -lA 解析结果) */
+export interface FileEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+  isLink: boolean;
+  linkTarget?: string;
+  size: number;
+  perms: string;
+  type: string;
+  owner: string;
+  group: string;
+  mtime: string;
+  ext: string;
+}
+
+/** 磁盘信息 */
+export interface DiskInfo {
+  path: string;
+  total: number;
+  used: number;
+  available: number;
+  usagePercent: number;
+}
+
+/** 快捷路径 */
+export interface QuickPath {
+  label: string;
+  path: string;
+  icon: string;
+}
+
+/** ADB 设备信息(多设备支持) */
+export interface AdbDevice {
+  serial: string;
+  state: string;
+  model?: string;
+}
+
+/** 传输进度事件(push/pull) */
+export interface TransferProgress {
+  local: string;
+  remote: string;
+  direction: 'push' | 'pull';
+  transferred: number;
+  total: number;
+  percent: number;
+}
+
+/** 批量删除结果 */
+export interface BatchRemoveResult {
+  success: boolean;
+  deleted: string[];
+  failed: { path: string; error: string }[];
+  error?: string;
+}
+
+/** 排序选项 */
+export type SortKey = 'name' | 'size' | 'mtime' | 'ext';
+export type SortDir = 'asc' | 'desc';
+
+// ========== EDL 分区管理相关类型 ==========
+
+/** EDL 分区信息(从 allxml 解析) */
+export interface EdlPartition {
+  label: string;
+  filename: string;
+  startSector: number;
+  numSectors: number;
+  sizeBytes: number;
+  sizeInKb?: number;
+  lun: number;
+  sectorSize: number;
+}
+
+/** 可用型号 */
+export interface EdlModel {
+  innermodel: string;
+  xmlPath: string;
+  partitionCount: number;
+}
+
+/** 操作记录(会话级) */
+export interface EdlOperationRecord {
+  id: string;
+  type: 'backup' | 'restore' | 'erase' | 'reset' | 'verify';
+  innermodel: string;
+  label: string;
+  timestamp: number;
+  success: boolean;
+  message: string;
+  durationMs: number;
+}
+
+/** 校验结果 */
+export interface EdlVerifyResult {
+  success: boolean;
+  matched: boolean;
+  bytesRead: number;
+  bytesExpected: number;
+  error?: string;
+}
+
 // ========== Root 相关类型(对应 plan.md 6.7 RootService) ==========
 
 /** Root stage 枚举(60+ 个 stage,见 RootService.ts) */
@@ -461,6 +566,84 @@ interface ElectronApi {
     subscribe: () => Promise<void>;
     unsubscribe: () => Promise<void>;
     onLine: (cb: (entry: LogEntry) => void) => () => void;
+  };
+  // 文件管理(ADB 文件浏览/推送/拉取/安装)
+  file: {
+    list: (path: string, deviceSerial?: string) => Promise<{ success: boolean; entries: FileEntry[]; error?: string }>;
+    stat: (path: string) => Promise<{ success: boolean; entry: FileEntry | null; error?: string }>;
+    exists: (path: string) => Promise<{ success: boolean; exists: boolean }>;
+    mkdir: (path: string, recursive?: boolean) => Promise<{ success: boolean; error?: string }>;
+    remove: (path: string, recursive?: boolean) => Promise<{ success: boolean; error?: string }>;
+    rename: (oldPath: string, newPath: string) => Promise<{ success: boolean; error?: string }>;
+    copy: (
+      srcPath: string,
+      dstPath: string,
+      recursive?: boolean,
+    ) => Promise<{ success: boolean; error?: string }>;
+    push: (local: string, remote: string, deviceSerial?: string) => Promise<{ success: boolean; error?: string }>;
+    pull: (remote: string, local: string, deviceSerial?: string) => Promise<{ success: boolean; error?: string }>;
+    pushFolder: (localDir: string, remoteDir: string) => Promise<{ success: boolean; error?: string }>;
+    installApk: (remoteApk: string) => Promise<{ success: boolean; error?: string }>;
+    installLocalApk: () => Promise<{ success: boolean; pkg?: string; error?: string }>;
+    diskInfo: (path?: string) => Promise<{ success: boolean; info: DiskInfo | null; error?: string }>;
+    readText: (path: string) => Promise<{ success: boolean; content: string; error?: string }>;
+    quickPaths: () => Promise<{ success: boolean; paths: QuickPath[] }>;
+    // M6 新增
+    listDevices: () => Promise<{ success: boolean; devices: AdbDevice[]; error?: string }>;
+    createFile: (path: string, content?: string) => Promise<{ success: boolean; error?: string }>;
+    writeFile: (path: string, content: string) => Promise<{ success: boolean; error?: string }>;
+    chmod: (path: string, mode: string, recursive?: boolean) => Promise<{ success: boolean; error?: string }>;
+    batchRemove: (paths: string[], recursive?: boolean) => Promise<BatchRemoveResult>;
+    search: (dir: string, query: string, deviceSerial?: string) => Promise<{ success: boolean; entries: FileEntry[]; error?: string }>;
+    setCompatMode: (enabled: boolean) => Promise<{ success: boolean; compatMode: boolean }>;
+    setKeepMtime: (enabled: boolean) => Promise<{ success: boolean; keepMtime: boolean }>;
+    onTransferProgress: (cb: (p: TransferProgress) => void) => () => void;
+  };
+  // EDL 分区管理(基于 QSaharaServer + fh_loader)
+  edlPartition: {
+    listModels: () => Promise<{ success: boolean; models: EdlModel[]; error?: string }>;
+    listPartitions: (innermodel: string) => Promise<{ success: boolean; partitions: EdlPartition[]; error?: string }>;
+    getPartitionInfo: (innermodel: string, label: string) => Promise<{
+      success: boolean;
+      info: { partition: EdlPartition; isCritical: boolean } | null;
+      error?: string;
+    }>;
+    checkEdlDevice: () => Promise<{ success: boolean; inEdl: boolean; port?: string; error?: string }>;
+    backupPartition: (opts: {
+      innermodel: string;
+      label: string;
+      outputFile: string;
+      v3: boolean;
+    }) => Promise<{ success: boolean; error?: string }>;
+    restorePartition: (opts: {
+      innermodel: string;
+      label: string;
+      inputFile: string;
+      v3: boolean;
+      backupBeforeRestore?: boolean;
+      backupOutputDir?: string;
+      verifyAfterRestore?: boolean;
+    }) => Promise<{
+      success: boolean;
+      error?: string;
+      backupPath?: string;
+      verified?: EdlVerifyResult;
+    }>;
+    erasePartition: (opts: {
+      innermodel: string;
+      label: string;
+      v3: boolean;
+    }) => Promise<{ success: boolean; error?: string }>;
+    verifyPartition: (opts: {
+      innermodel: string;
+      label: string;
+      expectedFile: string;
+      v3: boolean;
+    }) => Promise<{ success: boolean; result: EdlVerifyResult }>;
+    resetDevice: (opts: { innermodel: string; v3: boolean }) => Promise<{ success: boolean; error?: string }>;
+    getHistory: () => Promise<{ success: boolean; history: EdlOperationRecord[] }>;
+    clearHistory: () => Promise<{ success: boolean }>;
+    onProgress: (cb: (data: { msg: string; ts: number }) => void) => () => void;
   };
   // Root 全流程(对应 plan.md 6.7 RootService)
   root: {

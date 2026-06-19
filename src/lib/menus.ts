@@ -35,6 +35,8 @@ import {
   ListChecks,
   Upload,
   FolderTree,
+  FolderOpen,
+  HardDrive,
   type LucideProps,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
@@ -108,6 +110,20 @@ export const MAIN_MENU: MenuItem[] = [
     description: '安装/卸载应用、开机自启管理',
     icon: AppWindow,
     to: '/apps',
+  },
+  {
+    value: '7a',
+    label: '文件管理',
+    description: '浏览设备文件、推送/拉取、安装 APK',
+    icon: FolderOpen,
+    to: '/files',
+  },
+  {
+    value: '7b',
+    label: 'EDL 分区管理',
+    description: '9008 模式下备份/恢复/擦除分区',
+    icon: HardDrive,
+    to: '/edl-partitions',
   },
   {
     value: '8',

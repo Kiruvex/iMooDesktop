@@ -3,7 +3,7 @@
 // 对应原 userinstmodule/instmodule/userunmodule/unmodule/magisklist 系列 .bat
 // 业务逻辑见 plan.md 6.9 MagiskService
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Boxes,
   Upload,
@@ -62,7 +62,7 @@ export function Magisk(): JSX.Element {
     moduleName?: string;
   } | null>(null);
 
-  const loadModules = async (): Promise<void> => {
+  const loadModules = useCallback(async (): Promise<void> => {
     if (!device || device.type !== 'adb') {
       setModules([]);
       return;
@@ -81,11 +81,11 @@ export function Magisk(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  };
+  }, [device]);
 
   useEffect(() => {
-    loadModules();
-  }, [device]);
+    void loadModules();
+  }, [loadModules]);
 
   const handleInstall = async (): Promise<void> => {
     const files = await api.system.pickFile({

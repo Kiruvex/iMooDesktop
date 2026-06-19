@@ -12,6 +12,8 @@ import { registerToolsIpc } from './tools';
 import { registerMagiskIpc } from './magisk';
 import { registerBackupIpc } from './backup';
 import { registerRootIpc } from './root';
+import { registerFileIpc } from './file';
+import { registerEdlPartitionIpc } from './edlPartition';
 import { Logger } from '../services/Logger';
 
 const logger = Logger.instance;
@@ -28,5 +30,7 @@ export function registerAllIpc(): void {
   registerMagiskIpc();
   registerBackupIpc();
   registerRootIpc();
+  registerFileIpc();
+  registerEdlPartitionIpc();
   logger.info('ipc', '所有 IPC 通道已注册');
 }

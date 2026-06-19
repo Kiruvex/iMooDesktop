@@ -20,7 +20,7 @@ import { BackupService, type AdbDdMatchResult } from '../services/BackupService'
 import { EdlService } from '../services/EdlService';
 import { DeviceService } from '../services/DeviceService';
 import { Logger } from '../services/Logger';
-import { checkIsV3 } from '../../src/lib/isv3';
+import { checkIsV3 } from '../../shared/isv3';
 
 const logger = Logger.instance;
 

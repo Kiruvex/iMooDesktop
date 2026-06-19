@@ -17,6 +17,8 @@ import {
   PanelLeftClose,
   PanelLeft,
   Smartphone,
+  FolderOpen,
+  HardDrive,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useUIStore } from '../../stores/uiStore';
@@ -49,6 +51,8 @@ const navGroups: NavGroup[] = [
       { to: '/reboot', label: '高级重启', icon: RotateCw },
       { to: '/cloud', label: '资源下载', icon: Download },
       { to: '/apps', label: '应用管理', icon: AppWindow },
+      { to: '/files', label: '文件管理', icon: FolderOpen },
+      { to: '/edl-partitions', label: 'EDL 分区', icon: HardDrive },
       { to: '/tools', label: '其他工具', icon: Wrench },
       { to: '/magisk', label: 'Magisk 模块', icon: Boxes },
       { to: '/backup', label: '备份恢复', icon: DatabaseBackup },

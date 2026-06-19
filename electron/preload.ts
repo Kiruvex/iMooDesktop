@@ -328,6 +328,279 @@ const api = {
     },
   },
 
+  // ========== file:* 通道(ADB 文件管理) ==========
+  file: {
+    list: (path: string, deviceSerial?: string): Promise<{
+      success: boolean;
+      entries: {
+        name: string;
+        path: string;
+        isDir: boolean;
+        isLink: boolean;
+        linkTarget?: string;
+        size: number;
+        perms: string;
+        type: string;
+        owner: string;
+        group: string;
+        mtime: string;
+        ext: string;
+      }[];
+      error?: string;
+    }> => ipcRenderer.invoke('file:list', { path, deviceSerial }),
+
+    stat: (path: string): Promise<{ success: boolean; entry: unknown; error?: string }> =>
+      ipcRenderer.invoke('file:stat', { path }),
+
+    exists: (path: string): Promise<{ success: boolean; exists: boolean }> =>
+      ipcRenderer.invoke('file:exists', { path }),
+
+    mkdir: (path: string, recursive?: boolean): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('file:mkdir', { path, recursive }),
+
+    remove: (path: string, recursive?: boolean): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('file:remove', { path, recursive }),
+
+    rename: (oldPath: string, newPath: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('file:rename', { oldPath, newPath }),
+
+    copy: (
+      srcPath: string,
+      dstPath: string,
+      recursive?: boolean,
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('file:copy', { srcPath, dstPath, recursive }),
+
+    push: (
+      local: string,
+      remote: string,
+      deviceSerial?: string,
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('file:push', { local, remote, deviceSerial }),
+
+    pull: (
+      remote: string,
+      local: string,
+      deviceSerial?: string,
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('file:pull', { remote, local, deviceSerial }),
+
+    pushFolder: (localDir: string, remoteDir: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('file:push-folder', { localDir, remoteDir }),
+
+    installApk: (remoteApk: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('file:install-apk', { remoteApk }),
+
+    installLocalApk: (): Promise<{ success: boolean; pkg?: string; error?: string }> =>
+      ipcRenderer.invoke('file:install-local-apk'),
+
+    diskInfo: (path?: string): Promise<{
+      success: boolean;
+      info: {
+        path: string;
+        total: number;
+        used: number;
+        available: number;
+        usagePercent: number;
+      } | null;
+      error?: string;
+    }> => ipcRenderer.invoke('file:disk-info', { path }),
+
+    readText: (path: string): Promise<{ success: boolean; content: string; error?: string }> =>
+      ipcRenderer.invoke('file:read-text', { path }),
+
+    quickPaths: (): Promise<{
+      success: boolean;
+      paths: { label: string; path: string; icon: string }[];
+    }> => ipcRenderer.invoke('file:quick-paths'),
+
+    // ========== M6 新增 ==========
+    listDevices: (): Promise<{
+      success: boolean;
+      devices: { serial: string; state: string; model?: string }[];
+      error?: string;
+    }> => ipcRenderer.invoke('file:list-devices'),
+
+    createFile: (path: string, content?: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('file:create-file', { path, content }),
+
+    writeFile: (path: string, content: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('file:write-file', { path, content }),
+
+    chmod: (
+      path: string,
+      mode: string,
+      recursive?: boolean,
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('file:chmod', { path, mode, recursive }),
+
+    batchRemove: (
+      paths: string[],
+      recursive?: boolean,
+    ): Promise<{
+      success: boolean;
+      deleted: string[];
+      failed: { path: string; error: string }[];
+      error?: string;
+    }> => ipcRenderer.invoke('file:batch-remove', { paths, recursive }),
+
+    search: (
+      dir: string,
+      query: string,
+      deviceSerial?: string,
+    ): Promise<{ success: boolean; entries: unknown[]; error?: string }> =>
+      ipcRenderer.invoke('file:search', { dir, query, deviceSerial }),
+
+    setCompatMode: (enabled: boolean): Promise<{ success: boolean; compatMode: boolean }> =>
+      ipcRenderer.invoke('file:set-compat-mode', { enabled }),
+
+    setKeepMtime: (enabled: boolean): Promise<{ success: boolean; keepMtime: boolean }> =>
+      ipcRenderer.invoke('file:set-keep-mtime', { enabled }),
+
+    onTransferProgress: (cb: (p: {
+      local: string;
+      remote: string;
+      direction: 'push' | 'pull';
+      transferred: number;
+      total: number;
+      percent: number;
+    }) => void) => {
+      const handler = (_: unknown, p: unknown): void => cb(p as never);
+      ipcRenderer.on('file:transfer-progress', handler);
+      return () => ipcRenderer.removeListener('file:transfer-progress', handler);
+    },
+  },
+
+  // ========== edl-part:* 通道(EDL 分区管理,基于 QSaharaServer + fh_loader) ==========
+  edlPartition: {
+    listModels: (): Promise<{
+      success: boolean;
+      models: { innermodel: string; xmlPath: string; partitionCount: number }[];
+      error?: string;
+    }> => ipcRenderer.invoke('edl-part:list-models'),
+
+    listPartitions: (innermodel: string): Promise<{
+      success: boolean;
+      partitions: {
+        label: string;
+        filename: string;
+        startSector: number;
+        numSectors: number;
+        sizeBytes: number;
+        sizeInKb?: number;
+        lun: number;
+        sectorSize: number;
+      }[];
+      error?: string;
+    }> => ipcRenderer.invoke('edl-part:list-partitions', { innermodel }),
+
+    getPartitionInfo: (innermodel: string, label: string): Promise<{
+      success: boolean;
+      info: {
+        partition: {
+          label: string;
+          filename: string;
+          startSector: number;
+          numSectors: number;
+          sizeBytes: number;
+          sizeInKb?: number;
+          lun: number;
+          sectorSize: number;
+        };
+        isCritical: boolean;
+      } | null;
+      error?: string;
+    }> => ipcRenderer.invoke('edl-part:get-partition-info', { innermodel, label }),
+
+    checkEdlDevice: (): Promise<{
+      success: boolean;
+      inEdl: boolean;
+      port?: string;
+      error?: string;
+    }> => ipcRenderer.invoke('edl-part:check-edl-device'),
+
+    backupPartition: (opts: {
+      innermodel: string;
+      label: string;
+      outputFile: string;
+      v3: boolean;
+    }): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('edl-part:backup-partition', opts),
+
+    restorePartition: (opts: {
+      innermodel: string;
+      label: string;
+      inputFile: string;
+      v3: boolean;
+      backupBeforeRestore?: boolean;
+      backupOutputDir?: string;
+      verifyAfterRestore?: boolean;
+    }): Promise<{
+      success: boolean;
+      error?: string;
+      backupPath?: string;
+      verified?: {
+        success: boolean;
+        matched: boolean;
+        bytesRead: number;
+        bytesExpected: number;
+        error?: string;
+      };
+    }> => ipcRenderer.invoke('edl-part:restore-partition', opts),
+
+    erasePartition: (opts: {
+      innermodel: string;
+      label: string;
+      v3: boolean;
+    }): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('edl-part:erase-partition', opts),
+
+    verifyPartition: (opts: {
+      innermodel: string;
+      label: string;
+      expectedFile: string;
+      v3: boolean;
+    }): Promise<{
+      success: boolean;
+      result: {
+        success: boolean;
+        matched: boolean;
+        bytesRead: number;
+        bytesExpected: number;
+        error?: string;
+      };
+    }> => ipcRenderer.invoke('edl-part:verify-partition', opts),
+
+    resetDevice: (opts: {
+      innermodel: string;
+      v3: boolean;
+    }): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('edl-part:reset-device', opts),
+
+    getHistory: (): Promise<{
+      success: boolean;
+      history: {
+        id: string;
+        type: 'backup' | 'restore' | 'erase' | 'reset' | 'verify';
+        innermodel: string;
+        label: string;
+        timestamp: number;
+        success: boolean;
+        message: string;
+        durationMs: number;
+      }[];
+    }> => ipcRenderer.invoke('edl-part:get-history'),
+
+    clearHistory: (): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('edl-part:clear-history'),
+
+    onProgress: (cb: (data: { msg: string; ts: number }) => void) => {
+      const handler = (_: unknown, data: { msg: string; ts: number }): void => cb(data);
+      ipcRenderer.on('edl-part:progress', handler);
+      return () => ipcRenderer.removeListener('edl-part:progress', handler);
+    },
+  },
+
   // 平台信息(渲染进程可能需要)
   platform: process.platform,
   isDev: process.env.NODE_ENV === 'development',

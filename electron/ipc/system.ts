@@ -75,7 +75,7 @@ export function registerSystemIpc(): void {
     shell.openExternal(path);
   });
 
-  // 在文件管理器中显示
+  // 在文件管理中显示
   ipcMain.handle('system:show-in-folder', (_evt, { path }: { path: string }) => {
     shell.showItemInFolder(path);
   });

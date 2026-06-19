@@ -1,6 +1,6 @@
 // electron/ipc/cloud.ts - cloud:* 通道
 
-import { ipcMain } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import { CloudService, type CloudResource } from '../services/CloudService';
 import { Logger } from '../services/Logger';
 
@@ -19,7 +19,6 @@ export function registerCloudIpc(): void {
     try {
       await CloudService.download(name, (percent) => {
         // 推送进度(通过 webContents.send)
-        const { BrowserWindow } = require('electron');
         for (const w of BrowserWindow.getAllWindows()) {
           if (!w.isDestroyed()) {
             w.webContents.send('cloud:progress', { name, percent });

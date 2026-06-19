@@ -1,7 +1,7 @@
 // src/routes/Apps.tsx - 应用管理页
 // 对应原 appset.json:安装/卸载应用 + M5:Z10 解除安装限制 + QQ/微信开机自启
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   AppWindow,
   Upload,
@@ -30,7 +30,7 @@ export function Apps(): JSX.Element {
   const [installResult, setInstallResult] = useState<{ success: boolean; message: string } | null>(null);
   const [uninstallResult, setUninstallResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  const loadPackages = async (): Promise<void> => {
+  const loadPackages = useCallback(async (): Promise<void> => {
     // 没设备或非 ADB 模式,不调用
     if (!device || device.type !== 'adb') {
       setPackages([]);
@@ -43,11 +43,11 @@ export function Apps(): JSX.Element {
     } finally {
       setLoading(false);
     }
-  };
+  }, [device, thirdParty]);
 
   useEffect(() => {
-    loadPackages();
-  }, [thirdParty, device]);
+    void loadPackages();
+  }, [loadPackages]);
 
   const handleInstall = async (): Promise<void> => {
     const files = await api.system.pickFile({

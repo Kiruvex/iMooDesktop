@@ -156,7 +156,7 @@ class CloudServiceClass {
   async checkUpdates(): Promise<{ resource: CloudResource; updateAvailable: boolean }[]> {
     const local = await this.list();
     // 拉取云端 resversion.txt
-    let cloudVersions: Record<string, string> = {};
+    const cloudVersions: Record<string, string> = {};
     try {
       const config = this.loadConfig();
       const urls = config.mirrors.map((m) => `${m}resversion.txt`);

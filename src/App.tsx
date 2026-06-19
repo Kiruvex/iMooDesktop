@@ -19,6 +19,8 @@ import { Tools } from './routes/Tools';
 import { Magisk } from './routes/Magisk';
 import { Backup } from './routes/Backup';
 import { Root } from './routes/Root';
+import { Files } from './routes/Files';
+import { EdlPartitions } from './routes/EdlPartitions';
 
 export default function App(): JSX.Element {
   const loadSettings = useSettingsStore((s) => s.load);
@@ -36,6 +38,8 @@ export default function App(): JSX.Element {
         <Route path="/reboot" element={<Reboot />} />
         <Route path="/cloud" element={<Cloud />} />
         <Route path="/apps" element={<Apps />} />
+        <Route path="/files" element={<Files />} />
+        <Route path="/edl-partitions" element={<EdlPartitions />} />
         <Route path="/tools" element={<Tools />} />
         <Route path="/magisk" element={<Magisk />} />
         <Route path="/backup" element={<Backup />} />

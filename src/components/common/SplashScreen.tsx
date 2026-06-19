@@ -49,7 +49,7 @@ export function SplashScreen(): JSX.Element | null {
 
       {/* 版本号 */}
       <p className="relative mt-4 text-[10px] text-zinc-700">
-        v1.0.0-m4
+        v1.0.0
       </p>
 
       {/* 动画定义 */}
