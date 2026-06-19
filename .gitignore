@@ -1,40 +1,11 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-
-# 构建产物
-dist/
-build/
-*.spec.bak
-# Nuitka 产物
-main.build/
-main.dist/
-main.bin
-main.exe
-onefile_*.dist/
-*.bin
-*.app
-iMooDesktop.dist/
-iMooDesktop.bin
-iMooDesktop.exe
-iMooDesktop.app
-
-# 前端
-frontend/node_modules/
-frontend/dist/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-
-# 系统
-.DS_Store
-Thumbs.db
-
-# 运行时
-config.json
+node_modules
+dist
+dist-electron
+release
 *.log
+.DS_Store
+.env
+.env.local
+.vscode/*
+!.vscode/extensions.json
+.idea

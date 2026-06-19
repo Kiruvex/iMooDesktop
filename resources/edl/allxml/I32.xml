@@ -1,0 +1,29 @@
+<?xml version="1.0" ?>
+<data>
+    <program filename="fsc.img" label="fsc" physical_partition_number="0" start_sector="393216" num_partition_sectors="2" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="ssd.img" label="ssd" physical_partition_number="0" start_sector="393224" num_partition_sectors="16" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="modemst1.img" label="modemst1" physical_partition_number="0" start_sector="472088" num_partition_sectors="3072" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="modemst2.img" label="modemst2" physical_partition_number="0" start_sector="475160" num_partition_sectors="3072" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="DDR.img" label="DDR" physical_partition_number="0" start_sector="524288" num_partition_sectors="64" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="fsg.img" label="fsg" physical_partition_number="0" start_sector="524352" num_partition_sectors="3072" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="sec.img" label="sec" physical_partition_number="0" start_sector="527424" num_partition_sectors="32" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="bakmsg.img" label="bakmsg" physical_partition_number="0" start_sector="655360" num_partition_sectors="4" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="enflag.img" label="enflag" physical_partition_number="0" start_sector="655368" num_partition_sectors="4" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="kdmesg.img" label="kdmesg" physical_partition_number="0" start_sector="655376" num_partition_sectors="4096" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="xtcinfo.img" label="xtcinfo" physical_partition_number="0" start_sector="659472" num_partition_sectors="2048" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="bootlog.img" label="bootlog" physical_partition_number="0" start_sector="661520" num_partition_sectors="4096" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="xtcdata.img" label="xtcdata" physical_partition_number="0" start_sector="665616" num_partition_sectors="614400" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="devinfo.img" label="devinfo" physical_partition_number="0" start_sector="1487104" num_partition_sectors="2048" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="cache.img" label="cache" physical_partition_number="0" start_sector="4980736" num_partition_sectors="524288" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="keystore.img" label="keystore" physical_partition_number="0" start_sector="5572608" num_partition_sectors="1024" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="config.img" label="config" physical_partition_number="0" start_sector="5573632" num_partition_sectors="64" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="oem.img" label="oem" physical_partition_number="0" start_sector="5573696" num_partition_sectors="2048" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="limits.img" label="limits" physical_partition_number="0" start_sector="5636096" num_partition_sectors="64" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="mota.img" label="mota" physical_partition_number="0" start_sector="5767168" num_partition_sectors="1024" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="dip.img" label="dip" physical_partition_number="0" start_sector="5768192" num_partition_sectors="2048" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="syscfg.img" label="syscfg" physical_partition_number="0" start_sector="5770240" num_partition_sectors="1024" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="mcfg.img" label="mcfg" physical_partition_number="0" start_sector="5771264" num_partition_sectors="8192" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="apdp.img" label="apdp" physical_partition_number="0" start_sector="6029312" num_partition_sectors="512" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="msadp.img" label="msadp" physical_partition_number="0" start_sector="6029824" num_partition_sectors="512" SECTOR_SIZE_IN_BYTES="512"/>
+    <program filename="dpo.img" label="dpo" physical_partition_number="0" start_sector="6030336" num_partition_sectors="16" SECTOR_SIZE_IN_BYTES="512"/>
+</data>

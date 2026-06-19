@@ -1,0 +1,46 @@
+{
+  "mirrors": [
+    "https://pan.xgj.qzz.io/d/Baidu/atbCloud/",
+    "http://files.corexwear.com:1314/file/atb/",
+    "https://18284558277:7y1j7te1@webdav.123pan.cn/webdav/",
+    "https://pan.xgj.qzz.io/d/onedrive/atbCloud/"
+  ],
+  "resources": {
+    "userdata": { "filename": "userdata.img", "required": true, "extract": false, "category": "核心资源", "description": "Root 后刷的 userdata(含 Magisk + 预装 APK)" },
+    "apks": { "filename": "apks.zip", "required": true, "extract": true, "extractTo": "apks/", "category": "核心资源", "description": "预装应用包" },
+    "xtcpatch": { "filename": "xtcpatch.zip", "required": true, "extract": false, "category": "核心资源", "description": "XTC Patch 模块" },
+    "systemui": { "filename": "systemui.zip", "required": true, "extract": false, "category": "核心资源", "description": "V3 系统的 SystemUI 模块" },
+    "twrp": { "filename": "twrp.zip", "required": false, "extract": true, "extractTo": "edl/twrp/", "category": "Recovery", "description": "TWRP recovery 镜像包" },
+    "xp": { "filename": "xp.zip", "required": false, "extract": false, "category": "框架", "description": "Xposed 框架" },
+    "rootproapks": { "filename": "rootproapks.zip", "required": false, "extract": true, "extractTo": "rootproapks/", "category": "核心资源", "description": "Root 后拓展应用" },
+    "drivers": { "filename": "drivers.zip", "required": false, "extract": true, "extractTo": "drivers/", "category": "驱动", "description": "ADB + 9008 + VC 驱动" },
+    "bin": { "filename": "bin.zip", "required": false, "extract": false, "category": "工具箱", "description": "工具箱自身更新包" },
+
+    "Q1Y": { "filename": "DI01.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Q1Y/Q1 Root 资源" },
+    "Q2": { "filename": "DI02.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Q2 Root 资源" },
+    "Q1S": { "filename": "I17D.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Q1S Root 资源" },
+
+    "Z1": { "filename": "I16.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z1 Root 资源" },
+    "Z1S": { "filename": "I17.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z1S Root 资源" },
+    "Z2": { "filename": "I12.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z2 Root 资源" },
+    "Z3": { "filename": "IB.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z3 Root 资源" },
+    "Z5": { "filename": "I13.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z5/Z5Q Root 资源" },
+    "Z5A": { "filename": "I13C.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z5A Root 资源" },
+    "Z5Pro": { "filename": "I19.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z5Pro Root 资源" },
+    "Z6": { "filename": "I18.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z6 Root 资源" },
+    "Z6dfb": { "filename": "I20.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z6 巅峰版 Root 资源" },
+    "Z7": { "filename": "I25.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z7 Root 资源" },
+    "Z7A": { "filename": "I25C.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z7A Root 资源" },
+    "Z7S": { "filename": "I25D.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z7S Root 资源" },
+    "Z8": { "filename": "I32.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z8 Root 资源" },
+    "Z8A": { "filename": "ND07.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z8A Root 资源" },
+    "Z9": { "filename": "ND01.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z9 Root 资源" },
+    "Z10": { "filename": "ND03.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z10 Root 资源" },
+    "Z11": { "filename": "ND08.zip", "required": false, "extract": true, "extractTo": "edl/", "category": "型号资源", "description": "Z11 Root 资源" },
+
+    "versiontmp": { "filename": "versiontmp.txt", "required": false, "extract": false, "category": "版本", "description": "云端最新版本号" },
+    "versionnotice": { "filename": "versionnotice.txt", "required": false, "extract": false, "category": "版本", "description": "更新日志" },
+    "notice": { "filename": "notice.txt", "required": false, "extract": false, "category": "版本", "description": "公告内容" },
+    "resversion": { "filename": "resversion.txt", "required": false, "extract": false, "category": "版本", "description": "云端资源版本清单" }
+  }
+}

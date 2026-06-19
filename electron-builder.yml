@@ -1,0 +1,31 @@
+appId: io.github.kiruvex.imoodesktop
+productName: iMooDesktop
+copyright: Copyright (C) 2026 Kiruvex
+directories:
+  output: release
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - resources/**/*
+  - package.json
+asar: true
+asarUnpack:
+  - resources/bin/**
+  - resources/edl/**
+  - resources/scripts/**
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  icon: resources/assets/icon.png
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: iMooDesktop
+portable:
+  artifactName: ${productName}-${version}-portable.exe
