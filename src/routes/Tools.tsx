@@ -242,20 +242,16 @@ function ReadBuildProps(): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [props, setProps] = useState<{ key: string; label: string; value: string }[]>([]);
   const [search, setSearch] = useState('');
-  const [error, setError] = useState<string | null>(null);
 
   const load = async (): Promise<void> => {
     setLoading(true);
-    setError(null);
     try {
       const res = await api.tools.readBuildProps();
       if (res.success) {
         setProps(res.props);
-      } else {
-        setError(res.error ?? '读取失败');
       }
-    } catch (e) {
-      setError((e as Error).message);
+    } catch {
+      // 读取失败静默处理(UI 上无错误展示位)
     } finally {
       setLoading(false);
     }

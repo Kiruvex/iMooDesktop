@@ -2,7 +2,7 @@
 // 见 plan.md 6.4 AdbService
 // 替代原 adbdevice.bat / boot_completed.bat 等(见 plan.md 2.6.1)
 
-import { SubprocessPool, SpawnError } from './SubprocessPool';
+import { SubprocessPool } from './SubprocessPool';
 import { Logger } from './Logger';
 import { paths } from '../core/paths';
 import fs from 'node:fs';

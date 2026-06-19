@@ -3,7 +3,6 @@
 
 import { ipcMain, dialog, shell, BrowserWindow } from 'electron';
 import { config } from '../core/config';
-import { paths } from '../core/paths';
 import {
   setWindowOpacity,
   minimizeWindow,
@@ -50,7 +49,9 @@ export function registerSystemIpc(): void {
       const win = BrowserWindow.getFocusedWindow() ?? undefined;
       if (opts.kind === 'folder') {
         const result = await dialog.showOpenDialog(win!, {
-          properties: [opts.multi ? 'multiSelections' : 'openDirectory'].filter(Boolean),
+          properties: [opts.multi ? 'multiSelections' : 'openDirectory'].filter(
+            Boolean,
+          ) as NonNullable<Electron.OpenDialogOptions['properties']>,
         });
         if (result.canceled) return null;
         return opts.multi ? result.filePaths : result.filePaths[0];
@@ -61,7 +62,7 @@ export function registerSystemIpc(): void {
         properties: [
           'openFile',
           ...(opts.multi ? ['multiSelections'] : []),
-        ],
+        ] as NonNullable<Electron.OpenDialogOptions['properties']>,
         filters,
       });
       if (result.canceled) return null;
@@ -102,7 +103,7 @@ export function registerSystemIpc(): void {
       TerminalService.openTerminal();
       return { success: true };
     } catch (e) {
-      logger.error(`打开终端失败: ${(e as Error).message}`);
+      logger.error('system', `打开终端失败: ${(e as Error).message}`);
       return { success: false, error: (e as Error).message };
     }
   });

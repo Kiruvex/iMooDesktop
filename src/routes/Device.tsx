@@ -1,7 +1,7 @@
 // src/routes/Device.tsx - 设备状态页
 // 见 plan.md 5. src/routes/Device.tsx
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Smartphone,
   Zap,

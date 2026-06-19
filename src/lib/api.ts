@@ -1,18 +1,10 @@
 // src/lib/api.ts - window.api 类型封装
 // 见 plan.md 8.3 渲染进程封装
 
-import type { AppSettings, DeviceInfo, DeviceType, LogEntry, VerifyResult } from '../../shared/types';
+import type { AppSettings, DeviceInfo, DeviceType, LogEntry, VerifyResult, RebootMode } from '../../shared/types';
 
-export type RebootMode =
-  | 'system'
-  | 'bootloader'
-  | 'recovery'
-  | 'edl'
-  | 'twrp-temp'
-  | 'qmmi'
-  | 'ffbm'
-  | 'wipe-data'
-  | 'fastbootd';
+// 重新导出,保持下游 `import { type RebootMode } from '../lib/api'` 可用
+export type { RebootMode };
 
 export interface CloudResource {
   name: string;

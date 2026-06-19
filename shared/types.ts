@@ -175,6 +175,42 @@ export interface UpdateInfo {
   error?: string;
 }
 
+// ========== Root / Reboot 相关类型(preload + renderer 共用) ==========
+
+export type RebootMode =
+  | 'system'
+  | 'bootloader'
+  | 'recovery'
+  | 'edl'
+  | 'twrp-temp'
+  | 'qmmi'
+  | 'ffbm'
+  | 'wipe-data'
+  | 'fastbootd';
+
+export interface RootOptions {
+  nouserdata?: boolean;
+  sdkBranch?: 19 | 25 | 27 | 'nd03' | 'nd08';
+  modelChoice?: string;
+  sdk25Scheme?: 'boot' | 'recovery';
+}
+
+export interface RootContext {
+  stage: string;
+  options: RootOptions;
+  innermodel: string;
+  isV3: boolean;
+  smodel: boolean;
+  startedAt: number;
+  logs: { ts: number; level: string; msg: string }[];
+  error?: { stage: string; message: string; recoverable: boolean };
+  edlPort?: string;
+  sdkVersion?: string;
+  androidVersion?: string;
+  softVersion?: string;
+  progress: number;
+}
+
 // ========== 应用元信息 ==========
 export const APP_META = {
   name: 'iMooDesktop',

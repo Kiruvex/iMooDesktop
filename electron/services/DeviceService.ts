@@ -11,7 +11,6 @@ import { Logger } from './Logger';
 import { SubprocessPool } from './SubprocessPool';
 import { paths } from '../core/paths';
 import fs from 'node:fs';
-import path from 'node:path';
 
 const logger = Logger.instance.child('DeviceService');
 

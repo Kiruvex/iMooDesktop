@@ -12,13 +12,11 @@ import type {
   UninstallMethod,
   MagiskModule,
   StoreModule,
-  CloudResource,
-  ScrcpyOptions,
   AdbDdMatchResult,
-  UpdateInfo,
+  RebootMode,
+  RootOptions,
+  RootContext,
 } from '../shared/types';
-import type { RebootMode } from '../services/RebootService';
-import type { RootOptions, RootContext } from '../services/RootService';
 
 const api = {
   device: {

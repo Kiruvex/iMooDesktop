@@ -5,7 +5,7 @@
 // 3. BrowserWindow.getAllWindows().forEach(w => w.webContents.send('log:line', entry))
 
 import log from 'electron-log';
-import { app, BrowserWindow } from 'electron';
+import { BrowserWindow } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { EventEmitter } from 'node:events';

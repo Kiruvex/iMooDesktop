@@ -139,7 +139,6 @@ class EdlServiceClass {
    * 失败=非致命,跳过 + 提示手动按电源键(对应原 qfh_loader.bat 的语义)
    */
   async reboot(opts: EdlOptions): Promise<void> {
-    const rebootXml = paths.edlFile('reboot.xml');
     try {
       await SubprocessPool.spawn({
         cmd: this.fhLoaderPath,
@@ -258,24 +257,20 @@ class EdlServiceClass {
     // 对应 rebootpro.bat:275-293:根据 platform 选 loader/misc_xml/misc_img/img_ext
     let loader: EdlOptions['loader'];
     let miscXml: string;
-    let miscImg: string;
     let imgExt: string;
 
     if (platform === 'z10') {
       loader = 'prog_firehose_ddr.elf';
       miscXml = 'misc_ND03.xml';
-      miscImg = 'misc.img';
       imgExt = 'img';
     } else if (platform === 'otherpash') {
       loader = 'msm8909w.mbn';
       miscXml = `misc_${innermodel}.xml`;
-      miscImg = 'misc.mbn';
       imgExt = 'mbn';
     } else {
       // v3pash
       loader = 'msm8937.mbn';
       miscXml = `misc_${innermodel}.xml`;
-      miscImg = 'misc.img';
       imgExt = 'img';
     }
 

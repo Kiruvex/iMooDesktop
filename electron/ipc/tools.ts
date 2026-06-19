@@ -10,7 +10,6 @@ import { OtaService } from '../services/OtaService';
 import { RootProService } from '../services/RootProService';
 import { DriverService } from '../services/DriverService';
 import { AtbmodService } from '../services/AtbmodService';
-import { UpdateService } from '../services/UpdateService';
 import { Logger } from '../services/Logger';
 
 const logger = Logger.instance;

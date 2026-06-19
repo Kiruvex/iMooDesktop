@@ -3,7 +3,6 @@
 // 替代原 checkfile.bat(用 MD5 manifest 代替 .backup 副本)
 
 import fs from 'node:fs';
-import path from 'node:path';
 import crypto from 'node:crypto';
 import { Logger } from './Logger';
 import { paths } from '../core/paths';

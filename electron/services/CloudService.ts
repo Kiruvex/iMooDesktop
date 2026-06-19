@@ -45,8 +45,9 @@ class CloudServiceClass {
     if (this.linksConfig) return this.linksConfig;
     try {
       const content = fs.readFileSync(paths.dataFile('links.json'), 'utf-8');
-      this.linksConfig = JSON.parse(content);
-      return this.linksConfig;
+      const config: LinksConfig = JSON.parse(content);
+      this.linksConfig = config;
+      return config;
     } catch (e) {
       logger.error(`加载 links.json 失败: ${(e as Error).message}`);
       return { mirrors: [], resources: {} };
