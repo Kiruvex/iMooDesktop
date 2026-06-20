@@ -14,7 +14,11 @@ import { Logger } from './Logger';
 import { SubprocessPool } from './SubprocessPool';
 import { paths } from '../core/paths';
 import fs from 'node:fs';
-import { webusb } from 'usb';
+
+// 动态 require usb(native addon,不能被 Vite 静态分析)
+// 用 require 而非 import,避免 Rollup 尝试解析 .node 二进制
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { webusb } = require('usb') as { webusb: typeof import('usb')['webusb'] };
 
 /** innermodel → 型号名/平台 映射(从 src/lib/models.ts 同步,供 DeviceService 用) */
 const MODEL_MAP: Record<string, { model: string; platform: 'otherpash' | 'v3pash' | 'z10' }> = {
