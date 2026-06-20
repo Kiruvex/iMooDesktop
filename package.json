@@ -11,7 +11,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "tsc -b && vite build && electron-builder"
+    "electron:build": "node scripts/stub-usb.js && tsc -b && vite build && electron-builder && node scripts/stub-usb.js --restore"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.59.0",
