@@ -13,7 +13,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron', 'electron-log', 'electron-store', 'iconv-lite'],
+              external: ['electron', 'electron-log', 'electron-store', 'iconv-lite', 'usb'],
             },
           },
         },
