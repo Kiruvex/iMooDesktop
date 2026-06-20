@@ -15,10 +15,24 @@ import { SubprocessPool } from './SubprocessPool';
 import { paths } from '../core/paths';
 import fs from 'node:fs';
 
-// 动态 require usb(native addon,不能被 Vite 静态分析)
-// 用 require 而非 import,避免 Rollup 尝试解析 .node 二进制
+// 动态加载 usb(native addon,不能被 Vite/Rollup 静态分析)
+// 不能用 import 也不能用 typeof import('usb'),否则 Rollup 会尝试解析 .node 二进制
+// 只声明需要的最小接口类型
+
+interface WebUSBDevice {
+  vendorID: number;
+  productID: number;
+  serialNumber?: string;
+}
+
+interface WebUSB {
+  addEventListener(type: 'connect' | 'disconnect', listener: (ev: unknown) => void): void;
+  removeEventListener(type: 'connect' | 'disconnect', listener: (ev: unknown) => void): void;
+  getDevices(): WebUSBDevice[];
+}
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { webusb } = require('usb') as { webusb: typeof import('usb')['webusb'] };
+const { webusb } = require('usb') as { webusb: WebUSB };
 
 /** innermodel → 型号名/平台 映射(从 src/lib/models.ts 同步,供 DeviceService 用) */
 const MODEL_MAP: Record<string, { model: string; platform: 'otherpash' | 'v3pash' | 'z10' }> = {
