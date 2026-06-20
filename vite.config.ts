@@ -1,33 +1,12 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import electron from 'vite-plugin-electron/simple';
 import path from 'node:path';
 
-// native addon 包,不能被 Vite/Rollup 打包或扫描
-// 即使放在 external 里,Rollup 的 commonjs 插件仍会扫描它提取 named exports,
-// 跟随 require('../index.js') → require('@node-usb/...') → .node 二进制 → 崩溃
-// 解决:用 resolveId 钩子在 Rollup 解析之前拦截,直接返回空模块
-const nativeExternals = [
-  'electron',
-  'electron-log',
-  'electron-store',
-  'iconv-lite',
-  'usb',
-];
-
-function stubNativeAddon(): Plugin {
-  return {
-    name: 'stub-native-addon',
-    enforce: 'pre',
-    resolveId(source, _importer) {
-      // 拦截 usb 和 @node-usb/* 的所有引用
-      if (source === 'usb' || source.startsWith('@node-usb/')) {
-        return { id: source, external: true };
-      }
-      return null;
-    },
-  };
-}
+// usb 包含 native addon(.node),Rollup 的 commonjs 插件会扫描它导致崩溃
+// 用 resolve.alias 把 usb 指向空 stub,构建时 Rollup 读到的是空模块
+// 运行时 require('usb') 不受影响(external 让它保持 require 不打包)
+const usbStubPath = path.resolve(__dirname, 'electron/usb-stub.cjs');
 
 export default defineConfig({
   plugins: [
@@ -36,11 +15,15 @@ export default defineConfig({
       main: {
         entry: 'electron/main.ts',
         vite: {
-          plugins: [stubNativeAddon()],
+          resolve: {
+            alias: {
+              'usb': usbStubPath,
+            },
+          },
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: nativeExternals,
+              external: ['usb'],
             },
           },
         },
@@ -48,11 +31,15 @@ export default defineConfig({
       preload: {
         input: 'electron/preload.ts',
         vite: {
-          plugins: [stubNativeAddon()],
+          resolve: {
+            alias: {
+              'usb': usbStubPath,
+            },
+          },
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: nativeExternals,
+              external: ['usb'],
             },
           },
         },
