@@ -7,6 +7,7 @@
 //   - detectOnce 不变:adb → fastboot → 9008 三路确认
 
 import { BrowserWindow } from 'electron';
+import { createRequire } from 'node:module';
 import { TIMEOUT } from '../lib/timeouts';
 import { DeviceInfo, DeviceType } from '../../shared/types';
 import { checkIsV3 } from '../../shared/isv3';
@@ -15,9 +16,10 @@ import { SubprocessPool } from './SubprocessPool';
 import { paths } from '../core/paths';
 import fs from 'node:fs';
 
-// 动态加载 usb(native addon,不能被 Vite/Rollup 静态分析)
-// 不能用 import 也不能用 typeof import('usb'),否则 Rollup 会尝试解析 .node 二进制
-// 只声明需要的最小接口类型
+// 用 createRequire 加载 usb native addon
+// 这样代码里不出现 require('usb') 字符串,Rollup 完全无法静态分析
+// 运行时 Electron 的 Node.js 通过 createRequire 正常加载
+const nativeRequire = createRequire(__filename);
 
 interface WebUSBDevice {
   vendorID: number;
@@ -31,8 +33,9 @@ interface WebUSB {
   getDevices(): WebUSBDevice[];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { webusb } = require('usb') as { webusb: WebUSB };
+// 动态加载,变量名混淆避免 Rollup 静态分析
+const _usbModule = 'u' + 's' + 'b';
+const { webusb } = nativeRequire(_usbModule) as { webusb: WebUSB };
 
 /** innermodel → 型号名/平台 映射(从 src/lib/models.ts 同步,供 DeviceService 用) */
 const MODEL_MAP: Record<string, { model: string; platform: 'otherpash' | 'v3pash' | 'z10' }> = {
