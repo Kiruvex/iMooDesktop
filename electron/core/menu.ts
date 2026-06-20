@@ -96,7 +96,7 @@ function showAboutDialog(): void {
       ...(APP_META.authorQQGroup ? [`交流 QQ 群:${APP_META.authorQQGroup}`] : []),
       `邮箱:${APP_META.authorEmail}`,
       '',
-      `基于 ${APP_META.basedOn}`,
+      `参考 ${APP_META.basedOn}`,
       '',
       '本工具仅供学习交流,严禁用于商业用途与手表强制解绑。',
       '拾取他人手表请归还失主或联系 110。',

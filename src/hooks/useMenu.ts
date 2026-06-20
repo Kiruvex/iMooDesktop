@@ -2,7 +2,7 @@
 //
 // 重新定位(2026-06-18):菜单选项在 src/lib/menus.ts 里定义,
 // 不再读 resources/menus/*.json。
-// 这个 hook 保留,接口不变,M2-M5 路由仍可用 useMenu('rebootpro') 等。
+// 这个 hook 保留,接口不变,路由仍可用 useMenu('rebootpro') 等。
 
 import { getMenu, type MenuItem } from '../lib/menus';
 

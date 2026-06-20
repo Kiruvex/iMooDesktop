@@ -59,7 +59,7 @@ export interface MagiskModule {
   updateJson: string;
 }
 
-/** 商店模块信息(M5 新增,对应 MagiskService.storeSearch 返回) */
+/** 商店模块信息 */
 export interface StoreModule {
   id: string;
   name: string;
@@ -72,7 +72,7 @@ export interface StoreModule {
   lastUpdate: string;
 }
 
-// ========== Z10/自启相关类型(M5) ==========
+// ========== Z10/自启相关类型 ==========
 
 export interface Z10UnlockStep {
   name: string;
@@ -92,7 +92,7 @@ export interface AutoStartResult {
   error?: string;
 }
 
-// ========== OTA 相关类型(M5) ==========
+// ========== OTA 相关类型 ==========
 
 export interface OtaStep {
   name: string;
@@ -107,7 +107,7 @@ export interface OtaStartResult {
   error?: string;
 }
 
-// ========== RootPro 相关类型(M5) ==========
+// ========== RootPro 相关类型 ==========
 
 export interface RootProStep {
   name: string;
@@ -135,7 +135,7 @@ export interface RootProOptions {
   installMods?: boolean;
 }
 
-// ========== 驱动相关类型(M5) ==========
+// ========== 驱动相关类型 ==========
 
 export interface DriverStatus {
   qualcomm: boolean;
@@ -162,7 +162,7 @@ export interface DriverInstallResult {
   error?: string;
 }
 
-// ========== Atbmod 相关类型(M5) ==========
+// ========== Atbmod 相关类型 ==========
 
 export interface AtbmodFile {
   path: string;
@@ -185,7 +185,7 @@ export interface InstalledAtbmod {
   prop?: AtbmodProp;
 }
 
-// ========== 应用更新相关类型(M5) ==========
+// ========== 应用更新相关类型 ==========
 
 export interface UpdateInfo {
   hasUpdate: boolean;
@@ -269,32 +269,53 @@ export interface BatchRemoveResult {
 export type SortKey = 'name' | 'size' | 'mtime' | 'ext';
 export type SortDir = 'asc' | 'desc';
 
-// ========== EDL 分区管理相关类型 ==========
-
-/** EDL 分区信息(从 allxml 解析) */
-export interface EdlPartition {
-  label: string;
-  filename: string;
-  startSector: number;
-  numSectors: number;
-  sizeBytes: number;
-  sizeInKb?: number;
-  lun: number;
-  sectorSize: number;
+/** APK 解析信息 */
+export interface ApkInfo {
+  packageName: string;
+  versionName?: string;
+  versionCode?: string;
+  minSdkVersion?: number;
+  targetSdkVersion?: number;
+  permissions: string[];
+  apkSize: number;
+  dexSize?: number;
+  abis: string[];
+  signer?: string;
+  label?: string;
+  iconBase64?: string;
+  iconMime?: string;
 }
 
-/** 可用型号 */
-export interface EdlModel {
-  innermodel: string;
-  xmlPath: string;
-  partitionCount: number;
+// ========== EDL 分区管理相关类型(基于 edl-ng) ==========
+
+/** EDL 分区信息(从 edl-ng printgpt 实时解析) */
+export interface EdlPartition {
+  label: string;
+  typeGuid: string;
+  uid: string;
+  firstLba: number;
+  lastLba: number;
+  sizeBytes: number;
+  lun: number;
+}
+
+/** 存储几何信息 */
+export interface EdlStorageInfo {
+  sectorSize: number;
+  lunCount: number;
+}
+
+/** Loader 信息 */
+export interface EdlLoader {
+  name: string;
+  path: string;
+  description: string;
 }
 
 /** 操作记录(会话级) */
 export interface EdlOperationRecord {
   id: string;
-  type: 'backup' | 'restore' | 'erase' | 'reset' | 'verify';
-  innermodel: string;
+  type: 'printgpt' | 'backup' | 'restore' | 'erase' | 'reset' | 'verify';
   label: string;
   timestamp: number;
   success: boolean;
@@ -309,6 +330,15 @@ export interface EdlVerifyResult {
   bytesRead: number;
   bytesExpected: number;
   error?: string;
+}
+
+/** 传输进度(edl-ng 进度行解析) */
+export interface EdlTransferProgress {
+  operation: string;
+  percent: number;
+  transferredMiB: number;
+  totalMiB: number;
+  speed: string;
 }
 
 // ========== Root 相关类型(对应 plan.md 6.7 RootService) ==========
@@ -446,6 +476,8 @@ interface ElectronApi {
     stop: (pid: number) => Promise<{ success: boolean }>;
     stopAll: () => Promise<{ success: boolean }>;
     list: () => Promise<{ pid: number; opts: ScrcpyOptions; startedAt: number }[]>;
+    subscribe: () => Promise<void>;
+    onProcessChange: (cb: (data: { type: 'launch' | 'exit'; pid: number; code?: number }) => void) => () => void;
   };
   app: {
     list: (thirdParty?: boolean) => Promise<string[]>;
@@ -454,9 +486,9 @@ interface ElectronApi {
       method?: 'install' | 'data' | '3install' | 'create',
     ) => Promise<{ success: boolean; pkg?: string; error?: string }>;
     uninstall: (pkg: string) => Promise<{ success: boolean; error?: string }>;
-    // M5:Z10 解除安装限制
+    // Z10 解除安装限制
     unlockZ10: () => Promise<Z10UnlockResult>;
-    // M5:QQ/微信开机自启
+    // QQ/微信开机自启
     enableAutoStart: (packages?: string[]) => Promise<AutoStartResult>;
   };
   tools: {
@@ -469,19 +501,19 @@ interface ElectronApi {
     wifiEnable: () => Promise<{ success: boolean; error?: string }>;
     wifiConnect: (ip: string, port?: number) => Promise<{ success: boolean; error?: string }>;
     wifiDisconnect: (ip: string, port?: number) => Promise<{ success: boolean; error?: string }>;
-    // M5:OTA 升级
+    // OTA 升级
     otaStart: (zipPath: string) => Promise<OtaStartResult>;
-    // M5:Root 后优化
+    // Root 后优化
     rootpro: (options: RootProOptions) => Promise<RootProResult>;
-    // M5:驱动检测/安装
+    // 驱动检测/安装
     checkDrivers: () => Promise<DriverCheckResult>;
     installDrivers: () => Promise<DriverInstallResult>;
-    // M5:.atbmod 模块
+    // .atbmod 模块
     atbmodScan: () => Promise<{ success: boolean; files: AtbmodFile[]; error?: string }>;
     atbmodInstall: (file: string) => Promise<{ success: boolean; modid?: string; error?: string }>;
     atbmodList: () => Promise<{ success: boolean; installed: InstalledAtbmod[]; error?: string }>;
     atbmodUninstall: (modid: string) => Promise<{ success: boolean; error?: string }>;
-    // M5:检查应用更新
+    // 检查应用更新
     checkAppUpdate: () => Promise<UpdateInfo>;
   };
   // Magisk 模块管理(对应 plan.md 6.9 MagiskService)
@@ -497,7 +529,7 @@ interface ElectronApi {
     ) => Promise<{ success: boolean; error?: string }>;
     enable: (id: string) => Promise<{ success: boolean; error?: string }>;
     disable: (id: string) => Promise<{ success: boolean; error?: string }>;
-    // M5:模块商店
+    // 模块商店
     storeSearch: (query: string) => Promise<{ success: boolean; modules: StoreModule[] }>;
     storeInstall: (module: StoreModule) => Promise<{ success: boolean; error?: string }>;
   };
@@ -560,6 +592,7 @@ interface ElectronApi {
     windowToggleMaximize: () => Promise<void>;
     windowClose: () => Promise<void>;
     windowIsMaximized: () => Promise<boolean>;
+    onWindowState: (cb: (state: { maximized: boolean }) => void) => () => void;
     openTerminal: () => Promise<{ success: boolean; error?: string }>;
   };
   log: {
@@ -588,7 +621,7 @@ interface ElectronApi {
     diskInfo: (path?: string) => Promise<{ success: boolean; info: DiskInfo | null; error?: string }>;
     readText: (path: string) => Promise<{ success: boolean; content: string; error?: string }>;
     quickPaths: () => Promise<{ success: boolean; paths: QuickPath[] }>;
-    // M6 新增
+    // 文件管理增强
     listDevices: () => Promise<{ success: boolean; devices: AdbDevice[]; error?: string }>;
     createFile: (path: string, content?: string) => Promise<{ success: boolean; error?: string }>;
     writeFile: (path: string, content: string) => Promise<{ success: boolean; error?: string }>;
@@ -597,53 +630,46 @@ interface ElectronApi {
     search: (dir: string, query: string, deviceSerial?: string) => Promise<{ success: boolean; entries: FileEntry[]; error?: string }>;
     setCompatMode: (enabled: boolean) => Promise<{ success: boolean; compatMode: boolean }>;
     setKeepMtime: (enabled: boolean) => Promise<{ success: boolean; keepMtime: boolean }>;
+    parseApk: (apkPath: string) => Promise<ApkInfo>;
     onTransferProgress: (cb: (p: TransferProgress) => void) => () => void;
   };
-  // EDL 分区管理(基于 QSaharaServer + fh_loader)
+  // EDL 分区管理(基于 edl-ng)
   edlPartition: {
-    listModels: () => Promise<{ success: boolean; models: EdlModel[]; error?: string }>;
-    listPartitions: (innermodel: string) => Promise<{ success: boolean; partitions: EdlPartition[]; error?: string }>;
-    getPartitionInfo: (innermodel: string, label: string) => Promise<{
+    listLoaders: () => Promise<{ success: boolean; loaders: EdlLoader[] }>;
+    checkEdlDevice: () => Promise<{ success: boolean; inEdl: boolean; port?: string; error?: string }>;
+    printGpt: (loader: string) => Promise<{
       success: boolean;
-      info: { partition: EdlPartition; isCritical: boolean } | null;
+      partitions: EdlPartition[];
+      storage?: EdlStorageInfo;
       error?: string;
     }>;
-    checkEdlDevice: () => Promise<{ success: boolean; inEdl: boolean; port?: string; error?: string }>;
     backupPartition: (opts: {
-      innermodel: string;
+      loader: string;
       label: string;
       outputFile: string;
-      v3: boolean;
     }) => Promise<{ success: boolean; error?: string }>;
     restorePartition: (opts: {
-      innermodel: string;
+      loader: string;
       label: string;
       inputFile: string;
-      v3: boolean;
       backupBeforeRestore?: boolean;
       backupOutputDir?: string;
       verifyAfterRestore?: boolean;
-    }) => Promise<{
-      success: boolean;
-      error?: string;
-      backupPath?: string;
-      verified?: EdlVerifyResult;
-    }>;
+    }) => Promise<{ success: boolean; error?: string; backupPath?: string }>;
     erasePartition: (opts: {
-      innermodel: string;
+      loader: string;
       label: string;
-      v3: boolean;
     }) => Promise<{ success: boolean; error?: string }>;
     verifyPartition: (opts: {
-      innermodel: string;
+      loader: string;
       label: string;
       expectedFile: string;
-      v3: boolean;
     }) => Promise<{ success: boolean; result: EdlVerifyResult }>;
-    resetDevice: (opts: { innermodel: string; v3: boolean }) => Promise<{ success: boolean; error?: string }>;
+    resetDevice: (loader: string) => Promise<{ success: boolean; error?: string }>;
     getHistory: () => Promise<{ success: boolean; history: EdlOperationRecord[] }>;
     clearHistory: () => Promise<{ success: boolean }>;
     onProgress: (cb: (data: { msg: string; ts: number }) => void) => () => void;
+    onTransferProgress: (cb: (p: EdlTransferProgress) => void) => () => void;
   };
   // Root 全流程(对应 plan.md 6.7 RootService)
   root: {

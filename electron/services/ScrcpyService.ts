@@ -2,8 +2,11 @@
 // 见 plan.md 6.13 ScrcpyService
 // 对应原 scrcpy-ui.bat + scrcpy-noconsole.vbs
 // 18 个参数对应原 scrcpy-ui.json
+//
+// 事件驱动:launch/exit 时 emit 'process-change' 事件,IPC 层转发到前端,替代轮询
 
 import { spawn, ChildProcess } from 'node:child_process';
+import { EventEmitter } from 'node:events';
 import { Logger } from './Logger';
 import { paths } from '../core/paths';
 
@@ -37,7 +40,14 @@ interface RunningScrcpy {
   startedAt: number;
 }
 
-class ScrcpyServiceClass {
+/** 进程变化事件数据 */
+export interface ScrcpyProcessChange {
+  type: 'launch' | 'exit';
+  pid: number;
+  code?: number;  // exit 时的退出码
+}
+
+class ScrcpyServiceClass extends EventEmitter {
   private scrcpyPath = paths.binFile('scrcpy.exe');
   private running = new Map<number, RunningScrcpy>();
 
@@ -57,14 +67,20 @@ class ScrcpyServiceClass {
     const entry: RunningScrcpy = { pid, opts, process: proc, startedAt: Date.now() };
     this.running.set(pid, entry);
 
+    // 推送 launch 事件
+    this.emit('process-change', { type: 'launch', pid } satisfies ScrcpyProcessChange);
+
     proc.on('error', (err) => {
       logger.error(`scrcpy 启动失败: ${err.message}`);
       this.running.delete(pid);
+      this.emit('process-change', { type: 'exit', pid } satisfies ScrcpyProcessChange);
     });
 
     proc.on('exit', (code) => {
       logger.info(`scrcpy 退出(pid=${pid}, code=${code})`);
       this.running.delete(pid);
+      // 推送 exit 事件
+      this.emit('process-change', { type: 'exit', pid, code: code ?? undefined } satisfies ScrcpyProcessChange);
     });
 
     return pid;
@@ -84,6 +100,8 @@ class ScrcpyServiceClass {
       logger.error(`停止 scrcpy 失败: ${(e as Error).message}`);
     }
     this.running.delete(pid);
+    // stop 也会触发 exit 事件,但进程可能还没退出,这里先推送一次
+    this.emit('process-change', { type: 'exit', pid } satisfies ScrcpyProcessChange);
   }
 
   /** 停止所有 scrcpy */

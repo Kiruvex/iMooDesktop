@@ -9,6 +9,7 @@ import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
 import { Footer } from './Footer';
 import { LogConsole } from './LogConsole';
+import { Toaster } from '../common/Toaster';
 
 export function AppShell({ children }: { children: ReactNode }): JSX.Element {
   return (
@@ -20,6 +21,7 @@ export function AppShell({ children }: { children: ReactNode }): JSX.Element {
         <LogConsole />
       </div>
       <Footer />
+      <Toaster />
     </div>
   );
 }

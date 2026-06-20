@@ -3,9 +3,11 @@
 // 替代原 adbdevice.bat / boot_completed.bat 等(见 plan.md 2.6.1)
 
 import { SubprocessPool } from './SubprocessPool';
+import { TIMEOUT } from '../lib/timeouts';
 import { Logger } from './Logger';
 import { paths } from '../core/paths';
 import fs from 'node:fs';
+import path from 'node:path';
 
 const logger = Logger.instance.child('AdbService');
 
@@ -18,7 +20,7 @@ class AdbServiceClass {
       cmd: this.adbPath,
       args: ['devices'],
       encoding: 'utf-8',
-      timeout: 5000,
+      timeout: TIMEOUT.device,
       cwd: paths.bin,
     });
     return result.stdout
@@ -55,7 +57,7 @@ class AdbServiceClass {
   /** 获取单个 prop 值 */
   // 原 root.bat:134:adb shell getprop ro.product.innermodel
   async getprop(prop: string): Promise<string> {
-    const out = await this.shell(`getprop ${prop}`, { timeout: 5000 });
+    const out = await this.shell(`getprop ${prop}`, { timeout: TIMEOUT.device });
     return out.trim();
   }
 
@@ -88,7 +90,7 @@ class AdbServiceClass {
         cmd: this.adbPath,
         args: ['install', '-r', '-t', '-d', apkPath],
         encoding: 'gbk',
-        timeout: 120000,
+        timeout: TIMEOUT.install,
         cwd: paths.bin,
         onStdout: (line) => logger.info(`install: ${line}`),
       });
@@ -100,19 +102,104 @@ class AdbServiceClass {
     }
   }
 
+  /**
+   * data 安装方式:push 到 /data/app/ + pm install
+   * 对应原 instapp.bat 的 data 分支
+   * 适用:adb install 失败时的备选(权限问题),需要 shell 可写 /data/app
+   */
   private async installData(apkPath: string): Promise<{ success: boolean; pkg?: string }> {
-    // 简化实现,M3 完善
-    return this.installDirect(apkPath);
+    try {
+      const remotePath = `/data/app/tmp_${Date.now()}.apk`;
+      logger.info(`data 安装: push ${apkPath} → ${remotePath}`);
+      await this.push(apkPath, remotePath);
+      // pm install -r 走 package manager(不需要 adb install 的权限检查)
+      const out = await this.shell(`pm install -r ${remotePath}`, { timeout: TIMEOUT.install });
+      // 清理临时文件
+      try { await this.shell(`rm -f ${remotePath}`, { timeout: TIMEOUT.device }); } catch { /* ignore */ }
+      const success = out.includes('Success');
+      if (!success) {
+        logger.error(`data 安装失败: ${out.trim()}`);
+      }
+      return { success };
+    } catch (e) {
+      logger.error(`data 安装异常: ${(e as Error).message}`);
+      return { success: false };
+    }
   }
 
+  /**
+   * 3install 安装方式:push + am start VIEW intent(触发设备端安装器)
+   * 对应原 instapp.bat 的 3install 分支
+   * 适用:让用户在设备上手动确认安装(第三方安装器)
+   * 注意:异步安装,无法立即确认结果,返回 success=true 只表示 intent 发送成功
+   */
   private async install3rd(apkPath: string): Promise<{ success: boolean; pkg?: string }> {
-    // 简化实现,M3 完善
-    return this.installDirect(apkPath);
+    try {
+      const fileName = path.basename(apkPath);
+      const remotePath = `/sdcard/${fileName}`;
+      logger.info(`3install: push ${apkPath} → ${remotePath}`);
+      await this.push(apkPath, remotePath);
+      // am start -a android.intent.action.VIEW -d file:///sdcard/xxx.apk -t application/vnd.android.package-archive
+      const out = await this.shell(
+        `am start -a android.intent.action.VIEW -d "file://${remotePath}" -t application/vnd.android.package-archive`,
+        { timeout: TIMEOUT.shell },
+      );
+      // am start 成功会输出 "Starting: Intent..." 或 "Error"
+      const success = !out.toLowerCase().includes('error');
+      if (!success) {
+        logger.error(`3install 启动安装器失败: ${out.trim()}`);
+      }
+      return { success };
+    } catch (e) {
+      logger.error(`3install 异常: ${(e as Error).message}`);
+      return { success: false };
+    }
   }
 
+  /**
+   * create 安装方式:pm install-create + install-write + install-commit(分片安装)
+   * 对应原 instapp.bat 的 create 分支
+   * 适用:大 APK 分片安装,或需要精细控制安装流程
+   */
   private async installCreate(apkPath: string): Promise<{ success: boolean; pkg?: string }> {
-    // 简化实现,M3 完善
-    return this.installDirect(apkPath);
+    try {
+      // 1. 创建 install session
+      const createOut = await this.shell('pm install-create -r -t', { timeout: TIMEOUT.shell });
+      // 输出形如:Success: created install session [12345]
+      const m = createOut.match(/\[(\d+)\]/);
+      if (!m) {
+        logger.error(`install-create 失败: ${createOut.trim()}`);
+        return { success: false };
+      }
+      const sessionId = m[1];
+      logger.info(`create 安装: session ${sessionId}`);
+
+      // 2. 写入 APK
+      const size = fs.statSync(apkPath).size;
+      const fileName = path.basename(apkPath);
+      // pm install-write -S <size> <sessionId> <splitName> <localPath>
+      const writeOut = await this.shell(
+        `pm install-write -S ${size} ${sessionId} ${fileName} ${apkPath}`,
+        { timeout: TIMEOUT.transfer },
+      );
+      if (!writeOut.includes('Success')) {
+        logger.error(`install-write 失败: ${writeOut.trim()}`);
+        try { await this.shell(`pm install-abandon ${sessionId}`, { timeout: TIMEOUT.device }); } catch { /* ignore */ }
+        return { success: false };
+      }
+
+      // 3. 提交安装
+      const commitOut = await this.shell(`pm install-commit ${sessionId}`, { timeout: TIMEOUT.install });
+      const success = commitOut.includes('Success');
+      if (!success) {
+        logger.error(`install-commit 失败: ${commitOut.trim()}`);
+        try { await this.shell(`pm install-abandon ${sessionId}`, { timeout: TIMEOUT.device }); } catch { /* ignore */ }
+      }
+      return { success };
+    } catch (e) {
+      logger.error(`create 安装异常: ${(e as Error).message}`);
+      return { success: false };
+    }
   }
 
   /** 卸载应用 */
@@ -122,7 +209,7 @@ class AdbServiceClass {
         cmd: this.adbPath,
         args: ['uninstall', pkg],
         encoding: 'gbk',
-        timeout: 30000,
+        timeout: TIMEOUT.shellLong,
         cwd: paths.bin,
       });
       return result.stdout.includes('Success');
@@ -138,7 +225,7 @@ class AdbServiceClass {
       cmd: this.adbPath,
       args: ['push', local, remote],
       encoding: 'gbk',
-      timeout: 300000,
+      timeout: TIMEOUT.transfer,
       cwd: paths.bin,
     });
   }
@@ -149,7 +236,7 @@ class AdbServiceClass {
       cmd: this.adbPath,
       args: ['pull', remote, local],
       encoding: 'gbk',
-      timeout: 300000,
+      timeout: TIMEOUT.transfer,
       cwd: paths.bin,
     });
   }
@@ -162,7 +249,7 @@ class AdbServiceClass {
       cmd: this.adbPath,
       args: arg.split(' '),
       encoding: 'utf-8',
-      timeout: 10000,
+      timeout: TIMEOUT.shell,
       cwd: paths.bin,
     });
   }
@@ -173,11 +260,11 @@ class AdbServiceClass {
     const start = Date.now();
     while (Date.now() - start < timeout) {
       try {
-        const out = await this.shell('getprop sys.boot_completed', { timeout: 5000 });
+        const out = await this.shell('getprop sys.boot_completed', { timeout: TIMEOUT.device });
         if (out.trim() === '1') {
           // 进一步确认系统就绪
           try {
-            await this.shell('pm list packages', { timeout: 10000 });
+            await this.shell('pm list packages', { timeout: TIMEOUT.shell });
             return;
           } catch {
             // 系统未就绪,继续等
@@ -199,7 +286,7 @@ class AdbServiceClass {
         cmd: this.adbPath,
         args: ['root'],
         encoding: 'gbk',
-        timeout: 10000,
+        timeout: TIMEOUT.shell,
         cwd: paths.bin,
       });
       if (result.stdout.includes('restarting') || result.stdout.includes('already')) {
@@ -212,7 +299,7 @@ class AdbServiceClass {
     }
     // 尝试 su
     try {
-      const out = await this.shell('id -u', { timeout: 5000, root: true });
+      const out = await this.shell('id -u', { timeout: TIMEOUT.device, root: true });
       if (out.trim() === '0') {
         return { granted: true, method: 'su' };
       }
@@ -231,7 +318,7 @@ class AdbServiceClass {
       cmd: this.adbPath,
       args,
       encoding: 'gbk',
-      timeout: 30000,
+      timeout: TIMEOUT.shellLong,
       cwd: paths.bin,
     });
     return result.stdout
@@ -252,7 +339,7 @@ class AdbServiceClass {
       cmd: this.adbPath,
       args,
       encoding: 'gbk',
-      timeout: 10000,
+      timeout: TIMEOUT.shell,
       cwd: paths.bin,
     });
   }
@@ -260,29 +347,29 @@ class AdbServiceClass {
   /** input tap */
   // 原 automagisk.bat:input tap 304 26 等
   async inputTap(x: number, y: number): Promise<void> {
-    await this.shell(`input tap ${x} ${y}`, { timeout: 5000 });
+    await this.shell(`input tap ${x} ${y}`, { timeout: TIMEOUT.device });
   }
 
   /** input swipe */
   async inputSwipe(x1: number, y1: number, x2: number, y2: number, ms: number): Promise<void> {
-    await this.shell(`input swipe ${x1} ${y1} ${x2} ${y2} ${ms}`, { timeout: 5000 });
+    await this.shell(`input swipe ${x1} ${y1} ${x2} ${y2} ${ms}`, { timeout: TIMEOUT.device });
   }
 
   /** setprop */
   async setProp(prop: string, value: string): Promise<void> {
-    await this.shell(`setprop ${prop} ${value}`, { timeout: 5000 });
+    await this.shell(`setprop ${prop} ${value}`, { timeout: TIMEOUT.device });
   }
 
   /** cmd package compile */
   // 原 ROOT-SDK27.bat:cmd package compile -m everything-profile -f com.xtc.i3launcher
   async cmdPackageCompile(pkg: string, mode = 'everything-profile'): Promise<void> {
-    await this.shell(`cmd package compile -m ${mode} -f ${pkg}`, { timeout: 60000 });
+    await this.shell(`cmd package compile -m ${mode} -f ${pkg}`, { timeout: TIMEOUT.flash });
   }
 
   /** 打开充电可用 */
   // 原 opencharge.bat:adb shell "su -c setprop persist.sys.charge.usable true"
   async openCharge(): Promise<void> {
-    await this.shell('setprop persist.sys.charge.usable true', { timeout: 5000, root: true });
+    await this.shell('setprop persist.sys.charge.usable true', { timeout: TIMEOUT.device, root: true });
   }
 
   /** 读取设备 build 属性(按 build.txt 列表) */
@@ -322,7 +409,7 @@ class AdbServiceClass {
         cmd: this.adbPath,
         args: ['connect', `${ip}:${port}`],
         encoding: 'utf-8',
-        timeout: 10000,
+        timeout: TIMEOUT.shell,
         cwd: paths.bin,
       });
       return result.stdout.includes('connected');
@@ -337,7 +424,7 @@ class AdbServiceClass {
       cmd: this.adbPath,
       args: ['disconnect', `${ip}:${port}`],
       encoding: 'utf-8',
-      timeout: 5000,
+      timeout: TIMEOUT.device,
       cwd: paths.bin,
     });
   }
@@ -350,7 +437,7 @@ class AdbServiceClass {
       cmd: this.adbPath,
       args: ['usb'],
       encoding: 'utf-8',
-      timeout: 5000,
+      timeout: TIMEOUT.device,
       cwd: paths.bin,
       silent: true,
     });
@@ -359,7 +446,7 @@ class AdbServiceClass {
       cmd: this.adbPath,
       args: ['tcpip', '5555'],
       encoding: 'utf-8',
-      timeout: 10000,
+      timeout: TIMEOUT.shell,
       cwd: paths.bin,
     });
   }

@@ -1,16 +1,39 @@
 // electron/services/DeviceService.ts - 设备检测/等待/状态机
 // 见 plan.md 6.3 DeviceService
 // 替代原 device_check.exe(见 plan.md 2.6.2 废弃清单)
-// 实现细节优化:原用 lsusb,允许改用 node-usb(见 plan.md 核心约束"可以优化"表)
-//   —— M1 阶段暂用 adb/fastboot/lsusb.exe 三路检测,不引入 node-usb(避免依赖)
-//   —— 后续 M3 可改用 node-usb + 注册表方案
+// 实现方式:node-usb (usb@3.0.0) USB 插拔事件驱动 + 10 秒兜底轮询
+//   - USB 事件:即时响应设备插拔(800ms debounce 等设备稳定)
+//   - 10 秒兜底:捕获非物理插拔的状态变化(如 ADB unauthorized → device)
+//   - detectOnce 不变:adb → fastboot → 9008 三路确认
 
 import { BrowserWindow } from 'electron';
+import { TIMEOUT } from '../lib/timeouts';
 import { DeviceInfo, DeviceType } from '../../shared/types';
+import { checkIsV3 } from '../../shared/isv3';
 import { Logger } from './Logger';
 import { SubprocessPool } from './SubprocessPool';
 import { paths } from '../core/paths';
 import fs from 'node:fs';
+import { webusb } from 'usb';
+
+/** innermodel → 型号名/平台 映射(从 src/lib/models.ts 同步,供 DeviceService 用) */
+const MODEL_MAP: Record<string, { model: string; platform: 'otherpash' | 'v3pash' | 'z10' }> = {
+  I12: { model: 'Z2', platform: 'otherpash' },
+  IB: { model: 'Z3', platform: 'otherpash' },
+  I13C: { model: 'Z5A', platform: 'otherpash' },
+  I13: { model: 'Z5/Z5Q', platform: 'otherpash' },
+  I19: { model: 'Z5Pro', platform: 'otherpash' },
+  I18: { model: 'Z6', platform: 'otherpash' },
+  I20: { model: 'Z6巅峰版', platform: 'v3pash' },
+  I25: { model: 'Z7', platform: 'v3pash' },
+  I25C: { model: 'Z7A', platform: 'v3pash' },
+  I25D: { model: 'Z7S', platform: 'v3pash' },
+  I32: { model: 'Z8', platform: 'v3pash' },
+  ND07: { model: 'Z8A', platform: 'v3pash' },
+  ND01: { model: 'Z9', platform: 'v3pash' },
+  ND03: { model: 'Z10', platform: 'z10' },
+  ND08: { model: 'Z11', platform: 'z10' },
+};
 
 const logger = Logger.instance.child('DeviceService');
 
@@ -18,8 +41,13 @@ class DeviceServiceClass {
   private static _instance: DeviceServiceClass;
   private currentInfo: DeviceInfo | null = null;
   private listeners = new Set<(info: DeviceInfo | null) => void>();
-  private polling = false;
-  private pollTimer: NodeJS.Timeout | null = null;
+  private running = false;
+  /** 兜底轮询定时器(10 秒) */
+  private fallbackTimer: NodeJS.Timeout | null = null;
+  /** USB 事件 debounce 定时器 */
+  private debounceTimer: NodeJS.Timeout | null = null;
+  /** 防止 detectOnce 重入 */
+  private detecting = false;
   private lastNotify = '';
 
   static get instance(): DeviceServiceClass {
@@ -70,39 +98,85 @@ class DeviceServiceClass {
     };
   }
 
-  /** 启动轮询(2 秒一次,后台异步,不阻塞主线程) */
+  /**
+   * 启动设备监听(USB 事件驱动 + 10 秒兜底轮询)
+   * - USB connect/disconnect 事件 → 800ms debounce → detectOnce 确认
+   * - 10 秒兜底轮询:捕获非物理插拔的状态变化(如 ADB 授权切换)
+   */
   start(): void {
-    if (this.polling) return;
-    this.polling = true;
-    logger.info('设备监听已启动(2秒轮询)');
+    if (this.running) return;
+    this.running = true;
+    logger.info('设备监听已启动(USB 事件 + 10秒兜底轮询)');
 
-    const poll = async (): Promise<void> => {
-      if (!this.polling) return;
-      try {
-        // detectOnce 内部的失败静默(不发 debug 日志),只在状态变化时 update 发 info
-        const info = await this.detectOnce();
-        this.update(info);
-      } catch {
-        // 静默,不发日志(避免刷屏)
-      } finally {
-        if (this.polling) {
-          // 2 秒间隔,减少 subprocess 调用
-          this.pollTimer = setTimeout(poll, 2000);
-        }
-      }
+    // 注册 USB 插拔事件
+    const onUsbChange = (): void => {
+      this.scheduleDetect(800);
     };
-    // setImmediate 让首次检测不阻塞当前 tick
-    setImmediate(poll);
+    try {
+      webusb.addEventListener('connect', onUsbChange);
+      webusb.addEventListener('disconnect', onUsbChange);
+    } catch (e) {
+      logger.warn(`USB 事件注册失败,降级为纯轮询: ${(e as Error).message}`);
+    }
+    this._usbChangeHandler = onUsbChange;
+
+    // 首次立即检测
+    setImmediate(() => void this.detectAndUpdate());
+
+    // 10 秒兜底轮询(捕获状态切换,如 unauthorized → device)
+    this.fallbackTimer = setInterval(() => {
+      void this.detectAndUpdate();
+    }, 10000);
   }
 
-  /** 停止轮询 */
+  private _usbChangeHandler: ((ev: unknown) => void) | null = null;
+
+  /** 停止监听 */
   stop(): void {
-    this.polling = false;
-    if (this.pollTimer) {
-      clearTimeout(this.pollTimer);
-      this.pollTimer = null;
+    this.running = false;
+    if (this.fallbackTimer) {
+      clearInterval(this.fallbackTimer);
+      this.fallbackTimer = null;
+    }
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+    if (this._usbChangeHandler) {
+      try {
+        webusb.removeEventListener('connect', this._usbChangeHandler);
+        webusb.removeEventListener('disconnect', this._usbChangeHandler);
+      } catch {
+        // ignore
+      }
+      this._usbChangeHandler = null;
     }
     logger.info('设备监听已停止');
+  }
+
+  /** debounce 调度 detectAndUpdate(避免 USB 事件连发) */
+  private scheduleDetect(delay: number): void {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+    this.debounceTimer = setTimeout(() => {
+      this.debounceTimer = null;
+      void this.detectAndUpdate();
+    }, delay);
+  }
+
+  /** 执行一次检测并更新状态(防重入) */
+  private async detectAndUpdate(): Promise<void> {
+    if (this.detecting) return;
+    this.detecting = true;
+    try {
+      const info = await this.detectOnce();
+      this.update(info);
+    } catch {
+      // 静默
+    } finally {
+      this.detecting = false;
+    }
   }
 
   /** 一次检测:adb → fastboot → 9008 */
@@ -132,7 +206,7 @@ class DeviceServiceClass {
         cmd: adbPath,
         args: ['devices'],
         encoding: 'utf-8',
-        timeout: 5000,
+        timeout: TIMEOUT.device,
         cwd: paths.bin,
         silent: true,
       });
@@ -194,8 +268,9 @@ class DeviceServiceClass {
     return null;
   }
 
-  /** 填充 ADB 设备属性(innermodel/model/androidVersion/sdkVersion/softVersion) */
+  /** 填充 ADB 设备属性 */
   // 原 root.bat:134-158 多次调用 adb shell getprop
+  // 增强:读取更多属性 + 填充 isV3/innermodelName/platform + 电量/存储
   private async fillAdbProps(info: DeviceInfo, adbPath?: string): Promise<void> {
     const cmd = adbPath ?? this.resolveTool('adb');
     if (!cmd) return;
@@ -205,13 +280,17 @@ class DeviceServiceClass {
       'ro.build.version.release',
       'ro.build.version.sdk',
       'ro.product.current.softversion',
+      'ro.product.cpu.abi',
+      'ro.sf.lcd_density',
+      'ro.build.id',
+      'ro.build.date',
     ];
     try {
       const result = await SubprocessPool.spawn({
         cmd,
         args: ['shell', 'getprop'].concat(props.map((p) => `[${p}]:`)),
         encoding: 'gbk',
-        timeout: 5000,
+        timeout: TIMEOUT.device,
         cwd: paths.bin,
         silent: true,
       });
@@ -228,8 +307,76 @@ class DeviceServiceClass {
       info.androidVersion = map['ro.build.version.release'];
       info.sdkVersion = map['ro.build.version.sdk'];
       info.softVersion = map['ro.product.current.softversion'];
+      info.cpuAbi = map['ro.product.cpu.abi'] || undefined;
+      info.density = map['ro.sf.lcd_density'] || undefined;
+      info.buildId = map['ro.build.id'] || undefined;
+      info.buildDate = map['ro.build.date'] || undefined;
+
+      // 填充 isV3(用 checkIsV3 阈值表)
+      if (info.innermodel && info.softVersion) {
+        info.isV3 = checkIsV3(info.innermodel, info.softVersion);
+      }
+
+      // 填充 innermodelName + platform(用 MODEL_MAP 映射表)
+      if (info.innermodel) {
+        const modelInfo = MODEL_MAP[info.innermodel];
+        if (modelInfo) {
+          info.innermodelName = modelInfo.model;
+          info.platform = modelInfo.platform;
+        }
+      }
     } catch {
       // 属性加载失败不影响主流程
+    }
+
+    // 读取电量和存储(单独的 shell 命令,失败不影响主流程)
+    await this.fillBatteryAndStorage(info, cmd);
+  }
+
+  /** 读取电量和存储容量(ADB 模式) */
+  private async fillBatteryAndStorage(info: DeviceInfo, cmd: string): Promise<void> {
+    try {
+      // 电量:dumpsys battery | grep level
+      const batteryResult = await SubprocessPool.spawn({
+        cmd,
+        args: ['shell', 'dumpsys', 'battery'],
+        encoding: 'utf-8',
+        timeout: TIMEOUT.device,
+        cwd: paths.bin,
+        silent: true,
+      });
+      const levelMatch = batteryResult.stdout.match(/level:\s*(\d+)/i);
+      if (levelMatch) {
+        info.batteryLevel = parseInt(levelMatch[1], 10);
+      }
+    } catch {
+      // ignore
+    }
+
+    try {
+      // 存储:df /sdcard
+      const dfResult = await SubprocessPool.spawn({
+        cmd,
+        args: ['shell', 'df', '/sdcard'],
+        encoding: 'utf-8',
+        timeout: TIMEOUT.device,
+        cwd: paths.bin,
+        silent: true,
+      });
+      // df 输出:/sdcard 12345678 6789012 4567890 60% /storage/emulated
+      // 或:Filesystem 1K-blocks Used Available Use% Mounted on
+      const lines = dfResult.stdout.split('\n').filter((l) => l.trim());
+      if (lines.length >= 2) {
+        const parts = lines[lines.length - 1].split(/\s+/);
+        if (parts.length >= 4) {
+          const totalKb = parseInt(parts[1], 10);
+          const availKb = parseInt(parts[3], 10);
+          if (!isNaN(totalKb)) info.storageTotal = totalKb * 1024;
+          if (!isNaN(availKb)) info.storageAvailable = availKb * 1024;
+        }
+      }
+    } catch {
+      // ignore
     }
   }
 
@@ -242,7 +389,7 @@ class DeviceServiceClass {
         cmd: fastbootPath,
         args: ['devices'],
         encoding: 'utf-8',
-        timeout: 5000,
+        timeout: TIMEOUT.device,
         cwd: paths.bin,
         silent: true,
       });
@@ -274,7 +421,7 @@ class DeviceServiceClass {
         cmd: lsusbPath,
         args: [],
         encoding: 'utf-8',
-        timeout: 5000,
+        timeout: TIMEOUT.device,
         cwd: paths.bin,
         silent: true,
       });

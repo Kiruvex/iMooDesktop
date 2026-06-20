@@ -2,6 +2,7 @@
 // 见 plan.md 6.4 FastbootService
 
 import { SubprocessPool } from './SubprocessPool';
+import { TIMEOUT } from '../lib/timeouts';
 import { Logger } from './Logger';
 import { paths } from '../core/paths';
 
@@ -15,7 +16,7 @@ class FastbootServiceClass {
       cmd: this.fastbootPath,
       args: ['devices'],
       encoding: 'utf-8',
-      timeout: 5000,
+      timeout: TIMEOUT.device,
       cwd: paths.bin,
     });
     return result.stdout
@@ -30,7 +31,7 @@ class FastbootServiceClass {
       cmd: this.fastbootPath,
       args: ['flash', partition, img],
       encoding: 'gbk',
-      timeout: 120000,
+      timeout: TIMEOUT.install,
       cwd: paths.bin,
       onStdout: (line) => logger.info(`flash ${partition}: ${line}`),
     });
@@ -42,7 +43,7 @@ class FastbootServiceClass {
       cmd: this.fastbootPath,
       args: ['erase', partition],
       encoding: 'gbk',
-      timeout: 30000,
+      timeout: TIMEOUT.shellLong,
       cwd: paths.bin,
     });
   }
@@ -53,7 +54,7 @@ class FastbootServiceClass {
       cmd: this.fastbootPath,
       args: ['boot', img],
       encoding: 'gbk',
-      timeout: 30000,
+      timeout: TIMEOUT.shellLong,
       cwd: paths.bin,
     });
   }
@@ -64,7 +65,7 @@ class FastbootServiceClass {
       cmd: this.fastbootPath,
       args: arg.split(' '),
       encoding: 'utf-8',
-      timeout: 10000,
+      timeout: TIMEOUT.shell,
       cwd: paths.bin,
     });
   }
@@ -74,7 +75,7 @@ class FastbootServiceClass {
       cmd: this.fastbootPath,
       args: ['getvar', name],
       encoding: 'utf-8',
-      timeout: 10000,
+      timeout: TIMEOUT.shell,
       cwd: paths.bin,
     });
     return result.stdout.trim();
@@ -85,7 +86,7 @@ class FastbootServiceClass {
       cmd: this.fastbootPath,
       args: ['oem', cmd],
       encoding: 'gbk',
-      timeout: 30000,
+      timeout: TIMEOUT.shellLong,
       cwd: paths.bin,
     });
   }

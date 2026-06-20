@@ -1,15 +1,12 @@
-// src/routes/EdlPartitions.tsx - EDL 分区管理(阶段二增强版)
+// src/routes/EdlPartitions.tsx - EDL 分区管理(基于 edl-ng)
 //
-// 基于 QSaharaServer + fh_loader(复用现有 EdlService)
-// 分区表来源:resources/edl/allxml/<innermodel>.xml(静态,不连设备可用)
-// 功能:选型号看分区表 + 备份/恢复/擦除单分区 + 校验 + 重启设备 + 操作历史
+// 基于 edl-ng v1.5.0 实时读设备 GPT,不依赖静态 XML
+// 功能:选 loader + 读取分区表(printgpt)+ 备份/恢复/擦除单分区 + 校验 + 重启 + 操作历史
 //
-// 安全防护(阶段二强化):
-//   - 关键分区擦除需输入分区名确认(防误操作)
+// 安全防护:
+//   - 关键分区擦除需输入分区名确认(16 个黑名单)
 //   - 恢复前强制备份选项(默认开启)
 //   - 恢复后读回校验选项(逐字节比对)
-//   - 文件大小校验(镜像不能超过分区)
-//   - 操作历史记录(会话级,可追溯)
 //   - 设备非 9008 时禁用写操作
 
 import { useCallback, useEffect, useState } from 'react';
@@ -37,8 +34,9 @@ import type { ComponentType } from 'react';
 import {
   api,
   type EdlPartition,
-  type EdlModel,
+  type EdlLoader,
   type EdlOperationRecord,
+  type EdlTransferProgress,
 } from '../lib/api';
 import { cn, formatBytes } from '../lib/utils';
 
@@ -50,11 +48,10 @@ const CRITICAL_PARTITIONS = [
 ];
 
 export function EdlPartitions(): JSX.Element {
-  const [models, setModels] = useState<EdlModel[]>([]);
-  const [selectedModel, setSelectedModel] = useState('');
+  const [loaders, setLoaders] = useState<EdlLoader[]>([]);
+  const [selectedLoader, setSelectedLoader] = useState('');
   const [partitions, setPartitions] = useState<EdlPartition[]>([]);
   const [loadingPartitions, setLoadingPartitions] = useState(false);
-  const [v3, setV3] = useState(false);
 
   // 设备状态
   const [inEdl, setInEdl] = useState(false);
@@ -66,6 +63,7 @@ export function EdlPartitions(): JSX.Element {
   // 操作状态
   const [executing, setExecuting] = useState(false);
   const [progressMsg, setProgressMsg] = useState<string | null>(null);
+  const [transferProgress, setTransferProgress] = useState<EdlTransferProgress | null>(null);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // 擦除确认(关键分区需输入名称)
@@ -82,31 +80,32 @@ export function EdlPartitions(): JSX.Element {
   const [history, setHistory] = useState<EdlOperationRecord[]>([]);
   const [historyExpanded, setHistoryExpanded] = useState(false);
 
-  // 加载型号列表
-  const loadModels = useCallback(async (): Promise<void> => {
-    const r = await api.edlPartition.listModels();
-    if (r.success && r.models.length > 0) {
-      setModels(r.models);
-      if (!selectedModel) {
-        setSelectedModel(r.models[0].innermodel);
+  // 加载 loader 列表
+  const loadLoaders = useCallback(async (): Promise<void> => {
+    const r = await api.edlPartition.listLoaders();
+    if (r.success && r.loaders.length > 0) {
+      setLoaders(r.loaders);
+      if (!selectedLoader) {
+        setSelectedLoader(r.loaders[0].path);
       }
     }
-  }, [selectedModel]);
+  }, [selectedLoader]);
 
-  // 加载分区表
-  const loadPartitions = useCallback(async (model: string): Promise<void> => {
-    if (!model) {
+  // 读取分区表(printgpt)
+  const loadPartitions = useCallback(async (loader: string): Promise<void> => {
+    if (!loader) {
       setPartitions([]);
       return;
     }
     setLoadingPartitions(true);
+    setResult(null);
     try {
-      const r = await api.edlPartition.listPartitions(model);
+      const r = await api.edlPartition.printGpt(loader);
       if (r.success) {
         setPartitions(r.partitions);
       } else {
         setPartitions([]);
-        setResult({ success: false, message: r.error ?? '加载分区表失败' });
+        setResult({ success: false, message: r.error ?? '读取 GPT 失败' });
       }
     } finally {
       setLoadingPartitions(false);
@@ -127,23 +126,31 @@ export function EdlPartitions(): JSX.Element {
   }, []);
 
   useEffect(() => {
-    void loadModels();
+    void loadLoaders();
     void checkDevice();
     void refreshHistory();
-    const timer = window.setInterval(checkDevice, 3000);
-    return () => window.clearInterval(timer);
-  }, [loadModels, checkDevice, refreshHistory]);
-
-  useEffect(() => {
-    if (selectedModel) void loadPartitions(selectedModel);
-  }, [selectedModel, loadPartitions]);
+    // 订阅设备变化事件(替代轮询),USB 插拔/状态切换时刷新 9008 检测
+    const unsub = api.device.onChange(() => {
+      void checkDevice();
+    });
+    return unsub;
+  }, [loadLoaders, checkDevice, refreshHistory]);
 
   // 订阅进度
   useEffect(() => {
-    const unsub = api.edlPartition.onProgress((data) => {
+    const unsub1 = api.edlPartition.onProgress((data) => {
       setProgressMsg(data.msg);
     });
-    return unsub;
+    const unsub2 = api.edlPartition.onTransferProgress((p) => {
+      setTransferProgress(p);
+      if (p.percent >= 100) {
+        window.setTimeout(() => setTransferProgress(null), 800);
+      }
+    });
+    return () => {
+      unsub1();
+      unsub2();
+    };
   }, []);
 
   // 操作:备份单分区
@@ -159,12 +166,12 @@ export function EdlPartitions(): JSX.Element {
     setExecuting(true);
     setResult(null);
     setProgressMsg('开始备份...');
+    setTransferProgress(null);
     try {
       const r = await api.edlPartition.backupPartition({
-        innermodel: selectedModel,
+        loader: selectedLoader,
         label: p.label,
         outputFile,
-        v3,
       });
       setResult({
         success: r.success,
@@ -175,6 +182,7 @@ export function EdlPartitions(): JSX.Element {
     } finally {
       setExecuting(false);
       setProgressMsg(null);
+      setTransferProgress(null);
       void refreshHistory();
     }
   };
@@ -204,12 +212,12 @@ export function EdlPartitions(): JSX.Element {
     setExecuting(true);
     setResult(null);
     setProgressMsg('开始恢复...');
+    setTransferProgress(null);
     try {
       const r = await api.edlPartition.restorePartition({
-        innermodel: selectedModel,
+        loader: selectedLoader,
         label: restoreTarget.label,
         inputFile: restoreSelectedFile,
-        v3,
         backupBeforeRestore: restoreBackupBefore,
         backupOutputDir,
         verifyAfterRestore: restoreVerifyAfter,
@@ -218,17 +226,13 @@ export function EdlPartitions(): JSX.Element {
       if (r.backupPath) {
         message += `(原数据已备份: ${r.backupPath})`;
       }
-      if (r.verified) {
-        message += r.verified.matched
-          ? ' [校验通过]'
-          : ` [校验未通过: ${r.verified.error ?? '数据不一致'}]`;
-      }
       setResult({ success: r.success, message });
     } catch (e) {
       setResult({ success: false, message: (e as Error).message });
     } finally {
       setExecuting(false);
       setProgressMsg(null);
+      setTransferProgress(null);
       setRestoreTarget(null);
       setRestoreSelectedFile(null);
       void refreshHistory();
@@ -239,18 +243,17 @@ export function EdlPartitions(): JSX.Element {
   const handleErase = async (): Promise<void> => {
     if (!eraseTarget) return;
     const isCritical = CRITICAL_PARTITIONS.includes(eraseTarget.label);
-    // 关键分区必须输入正确名称
     if (isCritical && eraseConfirmInput !== eraseTarget.label) {
       return;
     }
     setExecuting(true);
     setResult(null);
     setProgressMsg('开始擦除...');
+    setTransferProgress(null);
     try {
       const r = await api.edlPartition.erasePartition({
-        innermodel: selectedModel,
+        loader: selectedLoader,
         label: eraseTarget.label,
-        v3,
       });
       setResult({
         success: r.success,
@@ -263,6 +266,7 @@ export function EdlPartitions(): JSX.Element {
     } finally {
       setExecuting(false);
       setProgressMsg(null);
+      setTransferProgress(null);
       setEraseTarget(null);
       setEraseConfirmInput('');
       void refreshHistory();
@@ -279,7 +283,7 @@ export function EdlPartitions(): JSX.Element {
     setResult(null);
     setProgressMsg('正在重启...');
     try {
-      const r = await api.edlPartition.resetDevice({ innermodel: selectedModel, v3 });
+      const r = await api.edlPartition.resetDevice(selectedLoader);
       setResult({
         success: r.success,
         message: r.success ? '重启指令已发送,设备将重启回系统' : `重启失败: ${r.error}`,
@@ -297,7 +301,6 @@ export function EdlPartitions(): JSX.Element {
     p.label.toLowerCase().includes(search.toLowerCase()),
   );
   const totalSize = partitions.reduce((sum, p) => sum + p.sizeBytes, 0);
-
   const isCritical = (label: string): boolean => CRITICAL_PARTITIONS.includes(label);
 
   return (
@@ -305,12 +308,12 @@ export function EdlPartitions(): JSX.Element {
       {/* 标题 + 设备状态 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold">
-            <HardDrive className="h-5 w-5 text-blue-500" />
+          <h1 className="page-title">
+            <HardDrive className="title-icon" />
             EDL 分区管理
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            9008 模式下查看/备份/恢复/擦除/校验分区(基于 fh_loader)
+          <p className="text-desc">
+            9008 模式下实时读取 GPT、备份/恢复/擦除分区(基于 edl-ng)
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -338,47 +341,48 @@ export function EdlPartitions(): JSX.Element {
       <div className="flex items-center gap-2 rounded-md border border-amber-700/40 bg-amber-900/10 p-3 text-xs text-amber-300">
         <ShieldAlert className="h-4 w-4 shrink-0" />
         <span>
-          恢复/擦除操作有变砖风险。恢复默认会先备份原分区,关键分区擦除需输入分区名确认。请确保电量充足。
+          恢复/擦除操作有变砖风险。恢复默认会先备份原分区,关键分区擦除需输入分区名确认。edl-ng 对老芯片(MSM8909W)支持未经验证,只读操作安全,写操作需谨慎。
         </span>
       </div>
 
-      {/* 型号 & 协议选择 */}
+      {/* Loader 选择 + 读取分区表 */}
       <section>
-        <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+        <h2 className="section-title">
           <Cpu className="h-3.5 w-3.5" />
-          设备型号
+          设备 & Loader
         </h2>
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+        <div className="card">
           <div className="flex flex-wrap items-center gap-3">
             <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              className="rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1.5 text-sm text-zinc-200 focus:border-blue-600 focus:outline-none"
+              value={selectedLoader}
+              onChange={(e) => setSelectedLoader(e.target.value)}
+              className="select-field"
             >
-              {models.map((m) => (
-                <option key={m.innermodel} value={m.innermodel}>
-                  {m.innermodel} ({m.partitionCount} 个分区)
+              {loaders.map((l) => (
+                <option key={l.path} value={l.path}>
+                  {l.name}({l.description})
                 </option>
               ))}
             </select>
-            <label className="flex items-center gap-2 text-sm text-zinc-400">
-              <input
-                type="checkbox"
-                checked={v3}
-                onChange={(e) => setV3(e.target.checked)}
-                className="h-3.5 w-3.5"
-              />
-              V3 协议(Z6+/Z7+ 勾选,其余不勾)
-            </label>
             <button
-              onClick={() => selectedModel && void loadPartitions(selectedModel)}
-              disabled={loadingPartitions}
-              className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50"
+              onClick={() => selectedLoader && void loadPartitions(selectedLoader)}
+              disabled={loadingPartitions || !inEdl || executing}
+              className="btn-primary"
             >
-              <RefreshCw className={cn('h-3.5 w-3.5', loadingPartitions && 'animate-spin')} />
-              刷新分区表
+              {loadingPartitions ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              读取分区表(printgpt)
             </button>
+            <span className="text-xs text-zinc-500">
+              {partitions.length > 0 ? `已读取 ${partitions.length} 个分区` : '未读取'}
+            </span>
           </div>
+          <p className="mt-2 text-xs text-zinc-600">
+            Z10/ND03 选 prog_firehose_ddr.elf;Z2-Z6 非 V3 选 msm8909w.mbn;V3 机型(Z6+/Z7+)选 msm8937.mbn
+          </p>
         </div>
       </section>
 
@@ -388,8 +392,8 @@ export function EdlPartitions(): JSX.Element {
           className={cn(
             'flex items-start gap-2 rounded-md border p-3 text-sm',
             result.success
-              ? 'border-green-800/50 bg-green-950/20 text-green-300'
-              : 'border-red-800/50 bg-red-950/20 text-red-300',
+              ? 'alert-ok-color'
+              : 'alert-err-color',
           )}
         >
           {result.success ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}
@@ -398,10 +402,31 @@ export function EdlPartitions(): JSX.Element {
       )}
 
       {/* 进度提示 */}
-      {executing && progressMsg && (
-        <div className="flex items-center gap-2 rounded-md border border-blue-800/50 bg-blue-950/20 p-3 text-sm text-blue-300">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="break-all">{progressMsg}</span>
+      {(executing || transferProgress) && (
+        <div className="space-y-2">
+          {executing && progressMsg && (
+            <div className="flex items-center gap-2 rounded-md border border-blue-800/50 bg-blue-950/20 p-3 text-sm text-blue-300">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="break-all">{progressMsg}</span>
+            </div>
+          )}
+          {transferProgress && (
+            <div className="flex items-center gap-3 rounded-md border border-blue-800/50 bg-blue-950/20 p-3 text-sm text-blue-300">
+              <Download className="h-4 w-4 shrink-0" />
+              <span className="shrink-0">{transferProgress.operation}:</span>
+              <span className="shrink-0 font-medium">{transferProgress.percent.toFixed(1)}%</span>
+              <span className="shrink-0 text-blue-400/70">
+                {transferProgress.transferredMiB.toFixed(2)} / {transferProgress.totalMiB.toFixed(2)} MiB
+              </span>
+              <span className="shrink-0 text-blue-400/70">[{transferProgress.speed}]</span>
+              <div className="relative h-1.5 min-w-[80px] flex-1 overflow-hidden rounded-full bg-zinc-800">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-blue-500 transition-all"
+                  style={{ width: `${transferProgress.percent}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -432,28 +457,30 @@ export function EdlPartitions(): JSX.Element {
         {loadingPartitions ? (
           <div className="flex items-center justify-center gap-2 py-10 text-zinc-500">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm">加载分区表...</span>
+            <span className="text-sm">正在读取 GPT 分区表...</span>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-10 text-zinc-500">
             <HardDrive className="h-8 w-8 text-zinc-600" />
-            <span className="text-sm">无分区数据</span>
+            <span className="text-sm">
+              {partitions.length === 0 ? '点击上方"读取分区表"获取分区列表' : '无匹配分区'}
+            </span>
           </div>
         ) : (
           <div className="max-h-[calc(100vh-520px)] min-h-[280px] overflow-y-auto rounded-lg border border-zinc-800">
-            <div className="sticky top-0 z-10 grid grid-cols-[1fr_100px_120px_100px_180px] gap-2 border-b border-zinc-800 bg-zinc-900/80 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 backdrop-blur">
+            <div className="sticky top-0 z-10 grid grid-cols-[1fr_100px_140px_80px_180px] gap-2 border-b border-zinc-800 bg-zinc-900/80 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 backdrop-blur">
               <span>分区名</span>
               <span className="text-right">大小</span>
-              <span>起始扇区</span>
-              <span className="text-right">扇区数</span>
+              <span>LBA 范围</span>
+              <span className="text-right">LUN</span>
               <span className="text-center">操作</span>
             </div>
             {filtered.map((p) => {
               const critical = isCritical(p.label);
               return (
                 <div
-                  key={p.label}
-                  className="grid grid-cols-[1fr_100px_120px_100px_180px] items-center gap-2 border-b border-zinc-800/60 px-3 py-2 text-xs last:border-0 hover:bg-zinc-900/40"
+                  key={`${p.label}-${p.lun}`}
+                  className="grid grid-cols-[1fr_100px_140px_80px_180px] items-center gap-2 border-b border-zinc-800/60 px-3 py-2 text-xs last:border-0 hover:bg-zinc-900/40"
                 >
                   <span className="flex items-center gap-2">
                     <HardDrive
@@ -472,9 +499,11 @@ export function EdlPartitions(): JSX.Element {
                   <span className="text-right tabular-nums text-zinc-400">
                     {formatBytes(p.sizeBytes)}
                   </span>
-                  <span className="font-mono text-zinc-500">{p.startSector}</span>
+                  <span className="font-mono text-zinc-500">
+                    {p.firstLba}-{p.lastLba}
+                  </span>
                   <span className="text-right font-mono tabular-nums text-zinc-500">
-                    {p.numSectors}
+                    {p.lun}
                   </span>
                   <span className="flex items-center justify-center gap-1">
                     <ActionButton
@@ -548,10 +577,11 @@ export function EdlPartitions(): JSX.Element {
                   <span
                     className={cn(
                       'shrink-0 rounded px-1.5 py-0.5 font-medium',
+                      h.type === 'printgpt' && 'bg-cyan-900/40 text-cyan-300',
                       h.type === 'backup' && 'bg-blue-900/40 text-blue-300',
                       h.type === 'restore' && 'bg-purple-900/40 text-purple-300',
                       h.type === 'erase' && 'bg-red-900/40 text-red-300',
-                      h.type === 'verify' && 'bg-cyan-900/40 text-cyan-300',
+                      h.type === 'verify' && 'bg-green-900/40 text-green-300',
                       h.type === 'reset' && 'bg-zinc-700/40 text-zinc-300',
                     )}
                   >
@@ -592,8 +622,9 @@ export function EdlPartitions(): JSX.Element {
               <div className="mt-2 space-y-1 text-xs text-red-300/80">
                 <div>分区名: <span className="font-mono font-bold">{eraseTarget.label}</span></div>
                 <div>大小: {formatBytes(eraseTarget.sizeBytes)}</div>
-                <div>起始扇区: {eraseTarget.startSector}</div>
-                <div>擦除方式: 全零数据覆盖</div>
+                <div>LBA 范围: {eraseTarget.firstLba}-{eraseTarget.lastLba}</div>
+                <div>LUN: {eraseTarget.lun}</div>
+                <div>擦除方式: edl-ng erase-part(原生 firehose erase)</div>
                 {isCritical(eraseTarget.label) && (
                   <div className="mt-2 rounded bg-red-900/30 p-2 text-red-400">
                     这是关键分区,擦除后设备可能无法启动!如需继续,请在下方输入分区名 "{eraseTarget.label}" 确认。
@@ -664,12 +695,12 @@ export function EdlPartitions(): JSX.Element {
           <div className="space-y-3">
             {/* 分区信息 */}
             <div className="rounded-md border border-zinc-800 bg-zinc-900/30 p-3 text-xs">
-              <div className="mb-2 font-medium text-zinc-300">目标分区信息</div>
+              <div className="mb-2 font-medium text-zinc-300">目标分区信息(实时 GPT)</div>
               <div className="grid grid-cols-2 gap-2 text-zinc-500">
                 <div>名称: <span className="font-mono text-zinc-300">{restoreTarget.label}</span></div>
                 <div>大小: <span className="text-zinc-300">{formatBytes(restoreTarget.sizeBytes)}</span></div>
-                <div>起始扇区: <span className="font-mono text-zinc-300">{restoreTarget.startSector}</span></div>
-                <div>扇区数: <span className="font-mono text-zinc-300">{restoreTarget.numSectors}</span></div>
+                <div>LBA: <span className="font-mono text-zinc-300">{restoreTarget.firstLba}-{restoreTarget.lastLba}</span></div>
+                <div>LUN: <span className="font-mono text-zinc-300">{restoreTarget.lun}</span></div>
               </div>
             </div>
 
@@ -680,7 +711,7 @@ export function EdlPartitions(): JSX.Element {
                 <button
                   onClick={() => void handleSelectRestoreFile()}
                   disabled={executing}
-                  className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50"
+                  className="btn-secondary"
                 >
                   <Upload className="h-3.5 w-3.5" /> 选择文件
                 </button>
@@ -688,9 +719,6 @@ export function EdlPartitions(): JSX.Element {
                   {restoreSelectedFile ?? '未选择'}
                 </span>
               </div>
-              <p className="mt-1 text-xs text-zinc-600">
-                镜像大小不能超过分区大小({formatBytes(restoreTarget.sizeBytes)}),后端会校验。
-              </p>
             </div>
 
             {/* 安全选项 */}

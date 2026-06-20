@@ -1,5 +1,5 @@
 // src/routes/Apps.tsx - 应用管理页
-// 对应原 appset.json:安装/卸载应用 + M5:Z10 解除安装限制 + QQ/微信开机自启
+// 对应原 appset.json:安装/卸载应用 + Z10 解除安装限制 + QQ/微信开机自启
 
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -20,6 +20,7 @@ import {
 import { api, type Z10UnlockResult, type AutoStartResult } from '../lib/api';
 import { cn } from '../lib/utils';
 import { useDeviceStore } from '../stores/deviceStore';
+import { ApkPreviewDialog } from '../components/common/ApkPreviewDialog';
 
 export function Apps(): JSX.Element {
   const device = useDeviceStore((s) => s.current);
@@ -49,22 +50,28 @@ export function Apps(): JSX.Element {
     void loadPackages();
   }, [loadPackages]);
 
+  const [apkPreviewPath, setApkPreviewPath] = useState<string | null>(null);
+
   const handleInstall = async (): Promise<void> => {
     const files = await api.system.pickFile({
       kind: 'open',
       filter: 'APK 文件|*.apk;所有文件|*.*',
-      multi: true,
+      multi: false,
     });
     if (!files) return;
-    const fileList = Array.isArray(files) ? files : [files];
+    const apkPath = Array.isArray(files) ? files[0] : files;
+    // 弹 APK 预览,确认后安装
+    setApkPreviewPath(apkPath);
+  };
+
+  const handleConfirmInstall = async (apkPath: string): Promise<void> => {
+    setApkPreviewPath(null);
     setInstallResult(null);
-    for (const f of fileList) {
-      const res = await api.app.install(f);
-      setInstallResult({
-        success: res.success,
-        message: res.success ? `安装成功: ${f}` : `安装失败: ${res.error}`,
-      });
-    }
+    const res = await api.app.install(apkPath);
+    setInstallResult({
+      success: res.success,
+      message: res.success ? `安装成功: ${apkPath.split(/[\\/]/).pop()}` : `安装失败: ${res.error}`,
+    });
     await loadPackages();
   };
 
@@ -85,11 +92,11 @@ export function Apps(): JSX.Element {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <AppWindow className="h-5 w-5 text-blue-500" />
+        <h1 className="page-title">
+          <AppWindow className="title-icon" />
           应用管理
         </h1>
-        <p className="mt-1 text-sm text-zinc-500">安装/卸载应用</p>
+        <p className="text-desc">安装/卸载应用</p>
       </div>
 
       {/* 操作按钮 */}
@@ -123,8 +130,8 @@ export function Apps(): JSX.Element {
           className={cn(
             'flex items-center gap-2 rounded-md border p-3 text-sm',
             installResult.success
-              ? 'border-green-800/50 bg-green-950/20 text-green-300'
-              : 'border-red-800/50 bg-red-950/20 text-red-300',
+              ? 'alert-ok-color'
+              : 'alert-err-color',
           )}
         >
           {installResult.success ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
@@ -138,8 +145,8 @@ export function Apps(): JSX.Element {
           className={cn(
             'flex items-center gap-2 rounded-md border p-3 text-sm',
             uninstallResult.success
-              ? 'border-green-800/50 bg-green-950/20 text-green-300'
-              : 'border-red-800/50 bg-red-950/20 text-red-300',
+              ? 'alert-ok-color'
+              : 'alert-err-color',
           )}
         >
           {uninstallResult.success ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
@@ -203,14 +210,21 @@ export function Apps(): JSX.Element {
         )}
       </section>
 
-      {/* M5:Z10 解除安装限制 + QQ/微信开机自启 */}
+      {/* Z10 解除安装限制 + QQ/微信开机自启 */}
       <Z10Unlock />
       <AutoStart />
+
+      {/* APK 预览弹窗 */}
+      <ApkPreviewDialog
+        apkPath={apkPreviewPath}
+        onConfirm={(path) => void handleConfirmInstall(path)}
+        onClose={() => setApkPreviewPath(null)}
+      />
     </div>
   );
 }
 
-// ========== Z10 解除安装限制(对应 z10openinst.bat,M5 新增) ==========
+// ========== Z10 解除安装限制(对应 z10openinst.bat) ==========
 
 function Z10Unlock(): JSX.Element {
   const device = useDeviceStore((s) => s.current);
@@ -244,7 +258,7 @@ function Z10Unlock(): JSX.Element {
 
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+      <h2 className="section-title">
         <button
           onClick={() => setExpanded(!expanded)}
           className="flex items-center gap-2 hover:text-zinc-300"
@@ -252,11 +266,10 @@ function Z10Unlock(): JSX.Element {
           {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           <ShieldCheck className="h-3.5 w-3.5" />
           Z10 解除安装限制
-          <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-500">M5</span>
         </button>
       </h2>
       {expanded && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+        <div className="card">
           <p className="mb-3 text-xs text-zinc-400">
             对应 z10openinst.bat:推送 switch.db → adb root → setprop adb_port/adb.install=1
             → cp switch.db → 软重启 zygote → 安装 z10apk.Apk / z10apk1.Apk。
@@ -277,7 +290,7 @@ function Z10Unlock(): JSX.Element {
           {result && (
             <div className="mt-4 space-y-2">
               {result.error && !result.steps.length && (
-                <div className="flex items-center gap-2 rounded-md border border-red-800/50 bg-red-950/20 p-2.5 text-xs text-red-300">
+                <div className="alert-err-sm">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                   <span>{result.error}</span>
                 </div>
@@ -311,7 +324,7 @@ function Z10Unlock(): JSX.Element {
                 </div>
               )}
               {result.success && (
-                <div className="flex items-center gap-2 rounded-md border border-green-800/50 bg-green-950/20 p-2.5 text-xs text-green-300">
+                <div className="alert-ok-sm">
                   <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                   <span>Z10 安装限制已解除</span>
                 </div>
@@ -324,7 +337,7 @@ function Z10Unlock(): JSX.Element {
   );
 }
 
-// ========== QQ/微信开机自启(对应 qqwxautestart.bat,M5 新增) ==========
+// ========== QQ/微信开机自启(对应 qqwxautestart.bat) ==========
 
 function AutoStart(): JSX.Element {
   const device = useDeviceStore((s) => s.current);
@@ -353,7 +366,7 @@ function AutoStart(): JSX.Element {
 
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+      <h2 className="section-title">
         <button
           onClick={() => setExpanded(!expanded)}
           className="flex items-center gap-2 hover:text-zinc-300"
@@ -361,11 +374,10 @@ function AutoStart(): JSX.Element {
           {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           <ToggleRight className="h-3.5 w-3.5" />
           QQ/微信开机自启
-          <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-500">M5</span>
         </button>
       </h2>
       {expanded && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+        <div className="card">
           <p className="mb-3 text-xs text-zinc-400">
             对应 qqwxautestart.bat:调用 content call com.xtc.launcher.self.start,默认包名:
           </p>
@@ -386,7 +398,7 @@ function AutoStart(): JSX.Element {
           {result && (
             <div className="mt-4 space-y-2">
               {result.error && (
-                <div className="flex items-center gap-2 rounded-md border border-red-800/50 bg-red-950/20 p-2.5 text-xs text-red-300">
+                <div className="alert-err-sm">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                   <span>{result.error}</span>
                 </div>
@@ -413,7 +425,7 @@ function AutoStart(): JSX.Element {
                 </div>
               )}
               {result.success && (
-                <div className="flex items-center gap-2 rounded-md border border-green-800/50 bg-green-950/20 p-2.5 text-xs text-green-300">
+                <div className="alert-ok-sm">
                   <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                   <span>操作完成!</span>
                 </div>

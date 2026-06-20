@@ -4,6 +4,115 @@
 
 /* 见 plan.md UI 规范:蓝色主题、无 emoji、lucide 图标 */
 
+/* ========== 语义化组件类(消除 zinc 配色重复,见 FIX.md P2-7) ========== */
+@layer components {
+  /* Section 卡片(最高频,17 处) */
+  .card {
+    @apply rounded-lg border border-zinc-800 bg-zinc-900/30 p-4;
+  }
+
+  /* Section 标题(h2 uppercase 小标题,15 处) */
+  .section-title {
+    @apply mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500;
+  }
+
+  /* 次级按钮(边框文字按钮,13 处) */
+  .btn-secondary {
+    @apply flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50;
+  }
+
+  /* 主操作按钮(蓝色实心) */
+  .btn-primary {
+    @apply flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50;
+  }
+
+  /* 危险按钮(红色边框) */
+  .btn-danger {
+    @apply flex items-center gap-1.5 rounded-md border border-red-900/50 px-3 py-1.5 text-sm text-red-400 hover:bg-red-950/30 disabled:opacity-50;
+  }
+
+  /* 搜索/输入框 */
+  .input-field {
+    @apply rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1.5 text-sm text-zinc-200 placeholder-zinc-500 focus:border-blue-600 focus:outline-none;
+  }
+
+  /* inline 结果提示条(成功) */
+  .alert-ok {
+    @apply flex items-center gap-2 rounded-md border border-green-800/50 bg-green-950/20 p-3 text-sm text-green-300;
+  }
+
+  /* inline 结果提示条(失败) */
+  .alert-err {
+    @apply flex items-center gap-2 rounded-md border border-red-800/50 bg-red-950/20 p-3 text-sm text-red-300;
+  }
+
+  /* inline 进度提示条(蓝色) */
+  .alert-progress {
+    @apply flex items-center gap-2 rounded-md border border-blue-800/50 bg-blue-950/20 p-3 text-sm text-blue-300;
+  }
+
+  /* 警告条(琥珀色) */
+  .alert-warn {
+    @apply flex items-center gap-2 rounded-md border border-amber-700/40 bg-amber-900/10 p-3 text-xs text-amber-300;
+  }
+
+  /* 提示条变体:小号(p-2.5 text-xs) */
+  .alert-ok-sm {
+    @apply flex items-center gap-2 rounded-md border border-green-800/50 bg-green-950/20 p-2.5 text-xs text-green-300;
+  }
+  .alert-err-sm {
+    @apply flex items-center gap-2 rounded-md border border-red-800/50 bg-red-950/20 p-2.5 text-xs text-red-300;
+  }
+
+  /* cn() 三元表达式用的纯颜色类(无布局) */
+  .alert-ok-color {
+    @apply border-green-800/50 bg-green-950/20 text-green-300;
+  }
+  .alert-err-color {
+    @apply border-red-800/50 bg-red-950/20 text-red-300;
+  }
+
+  /* 页面主标题(h1) */
+  .page-title {
+    @apply flex items-center gap-2 text-xl font-semibold;
+  }
+
+  /* 页面标题图标(蓝色) */
+  .title-icon {
+    @apply h-5 w-5 text-blue-500;
+  }
+
+  /* 副标题描述(标题下方) */
+  .text-desc {
+    @apply mt-1 text-sm text-zinc-500;
+  }
+
+  /* 次级文字(最暗) */
+  .text-muted {
+    @apply text-zinc-600;
+  }
+
+  /* 列表行 hover 背景 */
+  .row-hover {
+    @apply hover:bg-zinc-900/40;
+  }
+
+  /* 弹窗容器 */
+  .modal-card {
+    @apply rounded-lg border border-zinc-800 bg-zinc-900 p-4 shadow-2xl;
+  }
+
+  /* 输入框变体(搜索框,带 padding 调整) */
+  .input-search {
+    @apply rounded-md border border-zinc-800 bg-zinc-900/50 text-xs text-zinc-200 placeholder-zinc-500 focus:border-blue-600 focus:outline-none;
+  }
+
+  /* select 下拉框 */
+  .select-field {
+    @apply rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1.5 text-sm text-zinc-200 focus:border-blue-600 focus:outline-none;
+  }
+}
+
 :root {
   color-scheme: dark;
 }

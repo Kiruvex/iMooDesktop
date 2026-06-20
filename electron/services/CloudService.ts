@@ -3,6 +3,7 @@
 // 对应原 cloud.bat / link.bat / curltool.bat / resvertool.bat
 
 import fs from 'node:fs';
+import { TIMEOUT } from '../lib/timeouts';
 import path from 'node:path';
 import { SubprocessPool } from './SubprocessPool';
 import { Logger } from './Logger';
@@ -122,7 +123,7 @@ class CloudServiceClass {
         cmd: paths.binFile('7z.exe'),
         args: ['x', zipPath, `-o${extractTo}`, '-aoa'],
         encoding: 'utf-8',
-        timeout: 120000,
+        timeout: TIMEOUT.install,
         cwd: paths.bin,
         onStdout: (line) => logger.debug(`7z: ${line}`),
       });

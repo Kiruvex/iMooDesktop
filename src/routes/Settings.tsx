@@ -34,8 +34,8 @@ export function Settings(): JSX.Element {
 
   return (
     <div className="space-y-6">
-      <h1 className="flex items-center gap-2 text-xl font-semibold">
-        <SettingsIcon className="h-5 w-5 text-blue-500" />
+      <h1 className="page-title">
+        <SettingsIcon className="title-icon" />
         设置
       </h1>
 
@@ -104,7 +104,7 @@ export function Settings(): JSX.Element {
           {APP_META.authorQQGroup && <Row label="交流 QQ 群" value={APP_META.authorQQGroup} />}
           {APP_META.authorWebsite && <Row label="项目仓库" value={APP_META.authorWebsite} />}
           <Row label="反馈邮箱" value={APP_META.authorEmail} />
-          <Row label="基于" value={APP_META.basedOn} />
+          <Row label="参考" value={APP_META.basedOn} />
         </div>
         <div className="mt-4 rounded bg-amber-950/30 p-3 text-xs text-amber-300">
           本工具仅供学习交流,严禁用于商业用途与手表强制解绑。拾取他人手表请归还失主或联系 110。

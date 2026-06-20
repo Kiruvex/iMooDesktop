@@ -1,5 +1,5 @@
 // electron/services/DriverService.ts - 驱动检测与安装
-// 对应原 checkdriver.bat(M5)
+// 对应原 checkdriver.bat
 //
 // 逻辑保真(检测路径与原 .bat 逐字一致):
 //   checkdriver.bat:
@@ -24,6 +24,7 @@
 //     VC: .\drivers\vc.exe
 
 import { SubprocessPool } from './SubprocessPool';
+import { TIMEOUT } from '../lib/timeouts';
 import { CloudService } from './CloudService';
 import { Logger } from './Logger';
 import { paths } from '../core/paths';
@@ -151,7 +152,7 @@ class DriverServiceClass {
           cmd: 'pnputil.exe',
           args: ['/add-driver', infPath, '/install'],
           encoding: 'gbk',
-          timeout: 60000,
+          timeout: TIMEOUT.flash,
         });
       });
       if (!ok) logger.warn(`ADB 驱动安装失败: ${steps[2].message}`);
@@ -172,7 +173,7 @@ class DriverServiceClass {
           cmd: 'cmd.exe',
           args: ['/c', batPath],
           encoding: 'gbk',
-          timeout: 120000,
+          timeout: TIMEOUT.install,
           cwd: path.dirname(batPath),
         });
       });
@@ -193,7 +194,7 @@ class DriverServiceClass {
           cmd: vcPath,
           args: [],
           encoding: 'gbk',
-          timeout: 120000,
+          timeout: TIMEOUT.install,
         });
       });
       if (!ok) logger.warn(`VC 运行库安装失败: ${steps[4].message}`);

@@ -148,7 +148,7 @@ export const MAIN_MENU: MenuItem[] = [
   },
 ];
 
-// ========== 常用功能菜单(对应原 commonly.json,M2 用) ==========
+// ========== 常用功能菜单(对应原 commonly.json) ==========
 export const COMMONLY_MENU: MenuItem[] = [
   { value: '1', label: '离线 OTA 升级', icon: Download, to: '/tools' },
   { value: '2', label: '刷入 TWRP', icon: HardDriveDownload, to: '/backup' },
@@ -161,7 +161,7 @@ export const COMMONLY_MENU: MenuItem[] = [
   { value: '9', label: '无线调试 (ADB)', icon: Network, to: '/tools' },
 ];
 
-// ========== 高级重启菜单(对应原 rebootpro.json,M2 用) ==========
+// ========== 高级重启菜单(对应原 rebootpro.json) ==========
 export const REBOOT_MENU: MenuItem[] = [
   { value: '1', label: '重启至系统', icon: Power, to: '/reboot' },
   { value: '2', label: '重启至 Bootloader/Fastboot', icon: Cpu, to: '/reboot' },
@@ -174,7 +174,7 @@ export const REBOOT_MENU: MenuItem[] = [
   { value: '9', label: 'misc 进入 fastbootd', icon: ToggleRight, to: '/reboot' },
 ];
 
-// ========== 应用管理菜单(对应原 appset.json,M2 用) ==========
+// ========== 应用管理菜单(对应原 appset.json) ==========
 export const APPSET_MENU: MenuItem[] = [
   { value: '1', label: '安装应用', icon: Upload, to: '/apps' },
   { value: '2', label: '卸载应用', icon: Trash2, to: '/apps' },
@@ -182,7 +182,7 @@ export const APPSET_MENU: MenuItem[] = [
   { value: '4', label: '解除 z10 [1.0.1] 安装限制', icon: ToggleRight, to: '/apps' },
 ];
 
-// ========== Magisk 模块管理菜单(对应原 magisk.json,M3 用) ==========
+// ========== Magisk 模块管理菜单(对应原 magisk.json) ==========
 export const MAGISK_MENU: MenuItem[] = [
   { value: '1', label: '选择并刷入单个 Magisk 模块', icon: Upload, to: '/magisk' },
   { value: '2', label: '选择并刷入多个 Magisk 模块', icon: ListPlus, to: '/magisk' },
@@ -214,7 +214,7 @@ export const TOOLS_MENU: MenuItem[] = [
   { value: '5', label: '读取手表信息', icon: Info, to: '/tools' },
 ];
 
-// ========== Root 型号选择菜单(对应原 root.json,M4 用) ==========
+// ========== Root 型号选择菜单(对应原 root.json) ==========
 export const ROOT_MODEL_MENU: MenuItem[] = [
   { value: '1', label: 'Z2', icon: Smartphone },
   { value: '2', label: 'Z3', icon: Smartphone },
@@ -233,7 +233,7 @@ export const ROOT_MODEL_MENU: MenuItem[] = [
   { value: '15', label: 'Z11 (或少年版)', icon: Smartphone },
 ];
 
-/** 按 name 获取菜单(M2-M5 路由用) */
+/** 按 name 获取菜单(路由用) */
 export function getMenu(name: string): MenuItem[] {
   switch (name) {
     case 'main':

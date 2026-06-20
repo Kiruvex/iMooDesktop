@@ -17,6 +17,7 @@
 //   - 多设备:adb -s <serial> 前缀
 
 import { AdbService } from './AdbService';
+import { TIMEOUT } from '../lib/timeouts';
 import { SubprocessPool } from './SubprocessPool';
 import { Logger } from './Logger';
 import { paths } from '../core/paths';
@@ -108,7 +109,7 @@ class FileServiceClass extends EventEmitter {
     // -l 长格式,-A 显示除 . 和 .. 外的所有文件(含隐藏)
     // 兼容模式下不用 -A(旧 Android toybox 不支持)
     const flag = this.compatMode ? '-l' : '-lA';
-    const out = await this.shellDevice(`ls ${flag} ${safePath}`, { timeout: 15000 }, deviceSerial);
+    const out = await this.shellDevice(`ls ${flag} ${safePath}`, { timeout: TIMEOUT.fileOp }, deviceSerial);
     let entries = this.parseLsOutput(out, remotePath);
     // 兼容模式下手动过滤 . 和 ..
     if (this.compatMode) {
@@ -219,7 +220,7 @@ class FileServiceClass extends EventEmitter {
     const safePath = this.quote(remotePath);
     try {
       // ls -ld 显示自身信息
-      const out = await this.shellDevice(`ls -ld ${safePath}`, { timeout: 5000 }, deviceSerial);
+      const out = await this.shellDevice(`ls -ld ${safePath}`, { timeout: TIMEOUT.device }, deviceSerial);
       const entries = this.parseLsOutput(out, this.parentDir(remotePath));
       return entries.find((e) => e.path === remotePath) ?? entries[0] ?? null;
     } catch {
@@ -232,7 +233,7 @@ class FileServiceClass extends EventEmitter {
     const safePath = this.quote(remotePath);
     try {
       const out = await AdbService.shell(`[ -e ${safePath} ] && echo yes || echo no`, {
-        timeout: 5000,
+        timeout: TIMEOUT.device,
       });
       return out.trim() === 'yes';
     } catch {
@@ -243,20 +244,20 @@ class FileServiceClass extends EventEmitter {
   /** 创建目录(支持递归) */
   async mkdir(remotePath: string, recursive = true): Promise<void> {
     const flag = recursive ? '-p' : '';
-    await AdbService.shell(`mkdir ${flag} ${this.quote(remotePath)}`, { timeout: 10000 });
+    await AdbService.shell(`mkdir ${flag} ${this.quote(remotePath)}`, { timeout: TIMEOUT.shell });
   }
 
   /** 删除文件或目录(递归) */
   async remove(remotePath: string, recursive = true): Promise<void> {
     const flag = recursive ? '-rf' : '-f';
-    await AdbService.shell(`rm ${flag} ${this.quote(remotePath)}`, { timeout: 60000 });
+    await AdbService.shell(`rm ${flag} ${this.quote(remotePath)}`, { timeout: TIMEOUT.flash });
   }
 
   /** 重命名/移动 */
   async rename(oldPath: string, newPath: string): Promise<void> {
     await AdbService.shell(
       `mv ${this.quote(oldPath)} ${this.quote(newPath)}`,
-      { timeout: 60000 },
+      { timeout: TIMEOUT.flash },
     );
   }
 
@@ -265,7 +266,7 @@ class FileServiceClass extends EventEmitter {
     const flag = recursive ? '-r' : '';
     await AdbService.shell(
       `cp ${flag} ${this.quote(srcPath)} ${this.quote(dstPath)}`,
-      { timeout: 120000 },
+      { timeout: TIMEOUT.install },
     );
   }
 
@@ -302,7 +303,7 @@ class FileServiceClass extends EventEmitter {
         if (localMtime) {
           await this.shellDevice(
             `touch -d '${localMtime}' ${this.quote(remote)}`,
-            { timeout: 5000, root: false },
+            { timeout: TIMEOUT.device, root: false },
             deviceSerial,
           );
         }
@@ -340,7 +341,7 @@ class FileServiceClass extends EventEmitter {
     try {
       // pm install -r <path>
       const out = await AdbService.shell(`pm install -r ${this.quote(remoteApk)}`, {
-        timeout: 120000,
+        timeout: TIMEOUT.install,
       });
       const success = out.includes('Success');
       if (!success) {
@@ -356,7 +357,7 @@ class FileServiceClass extends EventEmitter {
   async diskInfo(remotePath = '/sdcard'): Promise<DiskInfo | null> {
     try {
       // toybox df -k <path> 输出:Filesystem 1K-blocks Used Available Use% Mounted on
-      const out = await AdbService.shell(`df -k ${this.quote(remotePath)}`, { timeout: 10000 });
+      const out = await AdbService.shell(`df -k ${this.quote(remotePath)}`, { timeout: TIMEOUT.shell });
       const lines = out.split('\n').filter((l) => l.trim());
       // 取最后一行数据
       const dataLine = lines[lines.length - 1];
@@ -385,7 +386,7 @@ class FileServiceClass extends EventEmitter {
   async readTextFile(remotePath: string, maxBytes = 1024 * 1024): Promise<string> {
     const safePath = this.quote(remotePath);
     // cat 输出
-    const out = await AdbService.shell(`cat ${safePath}`, { timeout: 10000 });
+    const out = await AdbService.shell(`cat ${safePath}`, { timeout: TIMEOUT.shell });
     if (out.length > maxBytes) {
       return out.slice(0, maxBytes) + '\n... [文件过大,已截断]';
     }
@@ -399,10 +400,10 @@ class FileServiceClass extends EventEmitter {
       // 用 echo 写入(转义单引号)
       // 写入临时再 mv,避免 shell 引号问题。这里用 printf '%s'
       const escaped = content.replace(/'/g, `'\\''`);
-      await AdbService.shell(`printf '%s' '${escaped}' > ${safePath}`, { timeout: 10000 });
+      await AdbService.shell(`printf '%s' '${escaped}' > ${safePath}`, { timeout: TIMEOUT.shell });
     } else {
       // touch 创建空文件
-      await AdbService.shell(`touch ${safePath}`, { timeout: 5000 });
+      await AdbService.shell(`touch ${safePath}`, { timeout: TIMEOUT.device });
     }
   }
 
@@ -411,14 +412,14 @@ class FileServiceClass extends EventEmitter {
     const safePath = this.quote(remotePath);
     // 用 printf '%s' 写入,转义单引号
     const escaped = content.replace(/'/g, `'\\''`);
-    await AdbService.shell(`printf '%s' '${escaped}' > ${safePath}`, { timeout: 30000 });
+    await AdbService.shell(`printf '%s' '${escaped}' > ${safePath}`, { timeout: TIMEOUT.shellLong });
   }
 
   /** 修改权限(对应 wkbin 计划中的 File permission modification) */
   async chmod(remotePath: string, mode: string, recursive = false): Promise<void> {
     const flag = recursive ? '-R' : '';
     await AdbService.shell(`chmod ${flag} ${mode} ${this.quote(remotePath)}`, {
-      timeout: 30000,
+      timeout: TIMEOUT.shellLong,
       root: false,
     });
   }
@@ -430,7 +431,7 @@ class FileServiceClass extends EventEmitter {
     const failed: { path: string; error: string }[] = [];
     for (const p of paths) {
       try {
-        await AdbService.shell(`rm ${flag} ${this.quote(p)}`, { timeout: 60000 });
+        await AdbService.shell(`rm ${flag} ${this.quote(p)}`, { timeout: TIMEOUT.flash });
         success.push(p);
       } catch (e) {
         failed.push({ path: p, error: (e as Error).message });
@@ -449,14 +450,14 @@ class FileServiceClass extends EventEmitter {
     try {
       out = await this.shellDevice(
         `find ${safeDir} -maxdepth 1 -iname ${safeQuery} 2>/dev/null`,
-        { timeout: 15000 },
+        { timeout: TIMEOUT.fileOp },
         deviceSerial,
       );
     } catch {
       // find 不可用,回退 ls + grep
       out = await this.shellDevice(
         `ls ${safeDir} | grep -i ${this.quote(query)}`,
-        { timeout: 15000 },
+        { timeout: TIMEOUT.fileOp },
         deviceSerial,
       );
     }
@@ -476,7 +477,7 @@ class FileServiceClass extends EventEmitter {
       cmd: paths.binFile('adb.exe'),
       args: ['devices', '-l'],
       encoding: 'utf-8',
-      timeout: 5000,
+      timeout: TIMEOUT.device,
       cwd: paths.bin,
     });
     const devices: { serial: string; state: string; model?: string }[] = [];

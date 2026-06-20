@@ -1,5 +1,5 @@
 // electron/services/OtaService.ts - 离线 OTA 升级
-// 对应原 ota.bat(M5)
+// 对应原 ota.bat
 //
 // 逻辑保真(命令参数逐字一致):
 //   ota.bat :root 标签:
@@ -14,6 +14,7 @@
 //     本服务把这些前置检测放在调用方(UI)处理,这里只做核心 OTA 流程
 
 import { AdbService } from './AdbService';
+import { TIMEOUT } from '../lib/timeouts';
 import { ScrcpyService } from './ScrcpyService';
 import { SubprocessPool } from './SubprocessPool';
 import { Logger } from './Logger';
@@ -108,7 +109,7 @@ class OtaServiceClass {
         cmd: paths.binFile('adb.exe'),
         args: ['root'],
         encoding: 'gbk',
-        timeout: 10000,
+        timeout: TIMEOUT.shell,
         cwd: paths.bin,
       });
       if (!result.stdout.includes('restarting') && !result.stdout.includes('already')) {
@@ -119,7 +120,7 @@ class OtaServiceClass {
 
     // 步骤 5:adb shell "rm -rf /data/ota*"
     ok = await runStep(4, async () => {
-      await AdbService.shell('rm -rf /data/ota*', { timeout: 15000 });
+      await AdbService.shell('rm -rf /data/ota*', { timeout: TIMEOUT.fileOp });
     });
     if (!ok) return { success: false, steps, scrcpyStarted: false, error: steps[4].message };
 
@@ -127,7 +128,7 @@ class OtaServiceClass {
     // 原:adb push %sel__file_path% /sdcard/xtc/ota_f_vota.zip
     ok = await runStep(5, async () => {
       // 先确保 /sdcard/xtc 目录存在
-      await AdbService.shell('mkdir -p /sdcard/xtc', { timeout: 5000 });
+      await AdbService.shell('mkdir -p /sdcard/xtc', { timeout: TIMEOUT.device });
       await AdbService.push(opts.zipPath, '/sdcard/xtc/ota_f_vota.zip');
     });
     if (!ok) return { success: false, steps, scrcpyStarted: false, error: steps[5].message };

@@ -77,11 +77,11 @@ export function Cloud(): JSX.Element {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold">
-            <Download className="h-5 w-5 text-blue-500" />
+          <h1 className="page-title">
+            <Download className="title-icon" />
             资源下载
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">从云端下载功能所需资源(4 镜像自适应)</p>
+          <p className="text-desc">从云端下载功能所需资源(4 镜像自适应)</p>
         </div>
         <button
           onClick={load}
@@ -166,7 +166,7 @@ export function Cloud(): JSX.Element {
                       <CheckCircle2 className="h-3 w-3" />
                       <span>已下载</span>
                       {r.localVersion && (
-                        <span className="text-zinc-600">· {r.localVersion}</span>
+                        <span className="text-muted">· {r.localVersion}</span>
                       )}
                     </div>
                   )}

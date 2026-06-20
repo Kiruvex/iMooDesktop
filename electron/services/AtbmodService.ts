@@ -1,5 +1,5 @@
 // electron/services/AtbmodService.ts - .atbmod 模块管理
-// 对应原 Loadatbmod.bat(M5)
+// 对应原 Loadatbmod.bat
 //
 // 逻辑保真(命令参数与原 .bat 逐字一致):
 //   Loadatbmod.bat 流程:
@@ -26,6 +26,7 @@
 //    uninstall(modid) 删除 mod/<modid>/(可选:转 _old 备份)
 
 import { SubprocessPool } from './SubprocessPool';
+import { TIMEOUT } from '../lib/timeouts';
 import { Logger } from './Logger';
 import { paths } from '../core/paths';
 import fs from 'node:fs';
@@ -130,7 +131,7 @@ class AtbmodServiceClass {
         cmd: this.sevenZip,
         args: ['x', file, `-o${tempDir}`, '-y'],
         encoding: 'utf-8',
-        timeout: 60000,
+        timeout: TIMEOUT.flash,
         cwd: paths.bin,
       });
     } catch (e) {
@@ -188,7 +189,7 @@ class AtbmodServiceClass {
           cmd: 'cmd.exe',
           args: ['/c', installer],
           encoding: 'gbk',
-          timeout: 300000,
+          timeout: TIMEOUT.transfer,
           cwd: tempDir,
           onStdout: (line) => logger.debug(`atbmod install: ${line}`),
         });
@@ -198,7 +199,7 @@ class AtbmodServiceClass {
           cmd: installer,
           args: [],
           encoding: 'gbk',
-          timeout: 300000,
+          timeout: TIMEOUT.transfer,
           cwd: tempDir,
         });
         exitCode = result.exitCode ?? 0;

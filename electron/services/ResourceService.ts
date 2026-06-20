@@ -109,15 +109,6 @@ class ResourceServiceClass {
     logger.info(`manifest.json 已生成(${entries.length} 个文件)`);
     return entries;
   }
-
-  /**
-   * 修复损坏的文件(从云端重新下载)
-   * M5 阶段实现,这里仅占位
-   */
-  async repair(file: string): Promise<void> {
-    logger.warn(`repair() 待 M5 实现: ${file}`);
-    throw new Error(`repair() 待 M5 实现: ${file}`);
-  }
 }
 
 export const ResourceService = ResourceServiceClass;

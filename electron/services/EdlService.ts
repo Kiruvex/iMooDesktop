@@ -5,6 +5,7 @@
 // 错误处理语义保留分离:flash 失败=重试,reboot 失败=跳过
 
 import { SubprocessPool, SpawnError } from './SubprocessPool';
+import { TIMEOUT } from '../lib/timeouts';
 import { AdbService } from './AdbService';
 import { DeviceService } from './DeviceService';
 import { Logger } from './Logger';
@@ -52,7 +53,7 @@ class EdlServiceClass {
         cmd: this.qsaharaPath,
         args: ['-p', `\\\\.\\${opts.port}`, '-s', `13:${loaderPath}`],
         encoding: 'gbk',
-        timeout: 60000,
+        timeout: TIMEOUT.flash,
         cwd: paths.bin,
         onStdout: (line) => logger.info(`QSaharaServer: ${line}`),
         onStderr: (line) => logger.warn(`QSaharaServer stderr: ${line}`),
@@ -87,7 +88,7 @@ class EdlServiceClass {
           '--noprompt',
         ],
         encoding: 'gbk',
-        timeout: 300000,
+        timeout: TIMEOUT.transfer,
         cwd: paths.bin,
         onStdout: (line) => logger.info(`fh_loader: ${line}`),
         onStderr: (line) => logger.warn(`fh_loader stderr: ${line}`),
@@ -120,7 +121,7 @@ class EdlServiceClass {
           '--noprompt',
         ],
         encoding: 'gbk',
-        timeout: 600000,
+        timeout: TIMEOUT.backup,
         cwd: paths.bin,
         onStdout: (line) => logger.info(`fh_loader read: ${line}`),
       });
@@ -150,7 +151,7 @@ class EdlServiceClass {
           '--noprompt',
         ],
         encoding: 'gbk',
-        timeout: 30000,
+        timeout: TIMEOUT.shellLong,
         cwd: paths.bin,
         onStdout: (line) => logger.info(`reboot: ${line}`),
       });
@@ -173,7 +174,7 @@ class EdlServiceClass {
         cmd: lsusbPath,
         args: [],
         encoding: 'utf-8',
-        timeout: 5000,
+        timeout: TIMEOUT.device,
         cwd: paths.bin,
         silent: true,
       });
@@ -372,7 +373,7 @@ class EdlServiceClass {
         `--mainoutputdir=${backupDir}\\`,
       ],
       encoding: 'gbk',
-      timeout: 600000,
+      timeout: TIMEOUT.backup,
       cwd: paths.bin,
       onStdout: (line) => onProgress?.(line),
     });
@@ -409,7 +410,7 @@ class EdlServiceClass {
       cmd: paths.binFile('7z.exe'),
       args: ['a', '-tzip', '-y', zipPath, `${backupDir}\\`],
       encoding: 'utf-8',
-      timeout: 300000,
+      timeout: TIMEOUT.transfer,
       cwd: paths.bin,
       onStdout: (line) => onProgress?.(line),
     });
@@ -445,7 +446,7 @@ class EdlServiceClass {
       cmd: paths.binFile('7z.exe'),
       args: ['x', zipPath, `-o${tmpDir}`, '-aoa'],
       encoding: 'utf-8',
-      timeout: 120000,
+      timeout: TIMEOUT.install,
       cwd: paths.bin,
     });
 

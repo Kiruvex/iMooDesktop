@@ -34,7 +34,7 @@ export function registerSystemIpc(): void {
     },
   );
 
-  // 单独的窗口透明度设置(M1 验收要求)
+  // 单独的窗口透明度设置
   ipcMain.handle('system:set-window-opacity', (_evt, { opacity }: { opacity: number }) => {
     setWindowOpacity(opacity);
   });

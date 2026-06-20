@@ -19,7 +19,7 @@
 //   - 失败 → ctx.error,stage='failed'
 //   - 日志 → 每步通过 Logger 输出,taskId 关联
 //
-// M4 Day 1-5 范围(完整):
+// 范围(完整):
 //   - 完整骨架 + RootStage 枚举(60+ 个 stage)
 //   - SDK19 完整实现(Android 4.4,Z2/Z3 老固件,fastboot 直刷)
 //   - SDK25 完整实现(Android 7.1,EDL + magiskpatch 21,BOOT/Recovery 双方案)
@@ -29,6 +29,7 @@
 //   - autosystemplus 自动激活 + 失败时 scrcpy 手动重试
 
 import { EventEmitter } from 'node:events';
+import { TIMEOUT } from '../lib/timeouts';
 import fs from 'node:fs';
 import path from 'node:path';
 import { BrowserWindow } from 'electron';
@@ -178,7 +179,7 @@ class RootServiceClass {
   constructor() {
     this.bus.setMaxListeners(50);
     // 注册所有 stage 的 handler(方法名 = stage 名,中划线替换为驼峰)
-    // SDK27/ND03 的方法体 throw TODO,Day 4-5 实现
+    // SDK19/25/27/ND03 四条线均已实现,见下方各 stage 方法
     this.handlers = {
       'idle': async () => {},
       'preparing-resources': this.preparingResources.bind(this),
@@ -259,7 +260,7 @@ class RootServiceClass {
   }
 
   /**
-   * 完成 stage handler(M5 新增)
+   * 完成 stage handler
    * 对应 root-SDK27.bat 末尾的 yesno 菜单:
    *   ECHO.%YELLOW%是否进行预装优化[包括模块和应用，期间需要多次选择]？
    *   menu.exe yesno.json
@@ -269,6 +270,12 @@ class RootServiceClass {
    * 调用 tools:rootpro IPC 实际执行
    */
   private async completedStage(ctx: RootContext): Promise<void> {
+    // DCIM 备份目录保留策略:root 完成后不自动删除,保留在 userData/root-backup/<taskId>/
+    // 原因:用户可能需要从备份恢复相册;若需清理,用户可在"备份恢复"页面手动删除
+    // edlWork 临时文件由 scheduleCleanup 在 30 分钟后自动清理(见 scheduleCleanup)
+    if (ctx.dcimBackupDir) {
+      this.log(ctx, 'info', `DCIM 备份已保留: ${ctx.dcimBackupDir}(可在备份恢复页手动清理)`);
+    }
     if (ctx.sdkVersion === '27') {
       this.log(
         ctx,
@@ -376,6 +383,7 @@ class RootServiceClass {
         ctx.stage = 'cancelled';
         ctx.endedAt = Date.now();
         this.emit(ctx);
+        this.scheduleCleanup(ctx);
         return;
       }
       // 检查暂停(在 stage 边界等待)
@@ -422,6 +430,8 @@ class RootServiceClass {
       this.log(ctx, 'info', 'Root 流程已完成');
       this.emit(ctx);
     }
+    // 延迟清理(无论 completed/failed/cancelled)
+    this.scheduleCleanup(ctx);
   }
 
   /** 等待用户恢复 */
@@ -442,6 +452,8 @@ class RootServiceClass {
     };
     this.log(ctx, 'error', `Root 流程失败: ${e.message}`);
     this.emit(ctx);
+    // 延迟清理(fail 后 run() 会 return,不经过末尾的 scheduleCleanup)
+    this.scheduleCleanup(ctx);
   }
 
   /** 推送 context 到所有渲染进程 */
@@ -454,6 +466,38 @@ class RootServiceClass {
         w.webContents.send('root:stage-change', ctx);
       }
     }
+  }
+
+  /**
+   * 延迟清理已完成的任务(避免 tasks Map 内存泄漏)
+   * 完成/失败/取消后 30 分钟清理,让前端有足够时间查询最终状态
+   * 同时清理 edlWork 临时文件(保留 DCIM 备份)
+   */
+  private scheduleCleanup(ctx: RootContext): void {
+    const taskId = ctx.taskId;
+    const delay = 30 * 60 * 1000; // 30 分钟
+    setTimeout(() => {
+      this.tasks.delete(taskId);
+      // 清理 bus 监听器
+      this.bus.removeAllListeners(`stage-change:${taskId}`);
+      // 清理 edlWork 临时文件(保留目录本身)
+      try {
+        const workDir = paths.edlWork;
+        if (fs.existsSync(workDir)) {
+          for (const f of fs.readdirSync(workDir)) {
+            const p = path.join(workDir, f);
+            try {
+              fs.rmSync(p, { recursive: true, force: true });
+            } catch {
+              // ignore 单个文件清理失败
+            }
+          }
+        }
+      } catch {
+        // ignore edlWork 清理失败
+      }
+      logger.info(`任务 ${taskId} 已清理(30 分钟后)`);
+    }, delay);
   }
 
   /** 内部日志(同时打到 Logger 和 ctx.logs) */
@@ -883,7 +927,7 @@ class RootServiceClass {
       args: ['x', zipPath, `-o${workDir}`, '-aoa', '-bsp1'],
       cwd: paths.bin,
       encoding: 'utf-8',
-      timeout: 120000,
+      timeout: TIMEOUT.install,
       taskId: ctx.taskId,
       onStdout: (line) => this.log(ctx, 'info', `7z: ${line}`),
     });
@@ -975,7 +1019,7 @@ class RootServiceClass {
     //   run_cmd "adb shell ""su -c cp -af /sdcard/magisk/* /data/adb/magisk/"""
     //   run_cmd "adb shell ""su -c chmod -R 755 /data/adb/magisk/"""
     this.log(ctx, 'info', '修复运行环境');
-    await AdbService.shell('mkdir -p /sdcard/magisk', { timeout: 5000 });
+    await AdbService.shell('mkdir -p /sdcard/magisk', { timeout: TIMEOUT.device });
     const magiskfileDir = path.join(paths.edlWork, 'magiskfile');
     if (fs.existsSync(magiskfileDir)) {
       await AdbService.push(magiskfileDir, '/sdcard/magisk');
@@ -983,14 +1027,14 @@ class RootServiceClass {
       this.log(ctx, 'warn', `magiskfile 目录不存在: ${magiskfileDir}`);
     }
     // su -c rm -rf /data/adb/magisk
-    await AdbService.shell('rm -rf /data/adb/magisk', { timeout: 10000, root: true });
+    await AdbService.shell('rm -rf /data/adb/magisk', { timeout: TIMEOUT.shell, root: true });
     // su -c cp -af /sdcard/magisk/* /data/adb/magisk/
     await AdbService.shell('cp -af /sdcard/magisk/* /data/adb/magisk/', {
-      timeout: 30000,
+      timeout: TIMEOUT.shellLong,
       root: true,
     });
     // su -c chmod -R 755 /data/adb/magisk/
-    await AdbService.shell('chmod -R 755 /data/adb/magisk/', { timeout: 10000, root: true });
+    await AdbService.shell('chmod -R 755 /data/adb/magisk/', { timeout: TIMEOUT.shell, root: true });
   }
 
   /** SDK19 安装 xtcpatch 模块(对应 ROOT-SDK19.bat:34) */
@@ -1326,7 +1370,7 @@ class RootServiceClass {
     if (fs.existsSync(setupSh)) {
       await AdbService.push(setupSh, '/sdcard/setup_magisk_env.sh');
       // 原:adb shell "su -c sh /sdcard/2100.sh"
-      await AdbService.shell('sh /sdcard/setup_magisk_env.sh', { timeout: 60000, root: true });
+      await AdbService.shell('sh /sdcard/setup_magisk_env.sh', { timeout: TIMEOUT.flash, root: true });
     } else {
       this.log(ctx, 'warn', `setup_magisk_env.sh 不存在: ${setupSh}`);
     }
@@ -1470,7 +1514,7 @@ class RootServiceClass {
       args,
       cwd: paths.edlWork,
       encoding: 'utf-8',
-      timeout: 60000,
+      timeout: TIMEOUT.flash,
       taskId: ctx.taskId,
       onStdout: (line) => this.log(ctx, 'info', `magiskboot: ${line}`),
       onStderr: (line) => this.log(ctx, 'warn', `magiskboot stderr: ${line}`),
@@ -1557,7 +1601,7 @@ class RootServiceClass {
    */
   private async checkMagiskReady(ctx: RootContext): Promise<boolean> {
     try {
-      const out = await AdbService.shell('magisk -v', { timeout: 10000, root: true });
+      const out = await AdbService.shell('magisk -v', { timeout: TIMEOUT.shell, root: true });
       const ready = /magisk/i.test(out) && out.trim().length > 0;
       if (ready) {
         this.log(ctx, 'info', `magisk -v: ${out.trim()}`);
@@ -1592,7 +1636,7 @@ class RootServiceClass {
     // busybox sleep 10
     await new Promise((r) => setTimeout(r, 10000));
     // input keyevent 4 (BACK)
-    await AdbService.shell('input keyevent 4', { timeout: 5000 });
+    await AdbService.shell('input keyevent 4', { timeout: TIMEOUT.device });
     // am start -n com.topjohnwu.magisk/.ui.MainActivity (再次启动)
     await AdbService.amStart('com.topjohnwu.magisk/.ui.MainActivity');
     // device_check.exe adb
@@ -1735,7 +1779,7 @@ class RootServiceClass {
     if (fs.existsSync(autoSh)) {
       await AdbService.push(autoSh, '/sdcard/autosystemplus.sh');
       try {
-        await AdbService.shell('sh /sdcard/autosystemplus.sh', { timeout: 30000, root: true });
+        await AdbService.shell('sh /sdcard/autosystemplus.sh', { timeout: TIMEOUT.shellLong, root: true });
       } catch (e) {
         this.log(ctx, 'warn', `autosystemplus.sh 执行失败: ${(e as Error).message}`);
       }
@@ -1755,7 +1799,7 @@ class RootServiceClass {
         let systemplusOut = '';
         try {
           systemplusOut = await AdbService.shell('sh /sdcard/systemplus.sh', {
-            timeout: 10000,
+            timeout: TIMEOUT.shell,
             root: true,
           });
         } catch (e) {
@@ -1768,7 +1812,7 @@ class RootServiceClass {
           await this.startScrcpy(ctx);
           try {
             await AdbService.shell('am start -n com.huanli233.systemplus/.ActiveSelfActivity', {
-              timeout: 5000,
+              timeout: TIMEOUT.device,
               root: true,
             });
           } catch {
@@ -1793,7 +1837,7 @@ class RootServiceClass {
         let toolkitOut = '';
         try {
           toolkitOut = await AdbService.shell('sh /sdcard/toolkit.sh', {
-            timeout: 10000,
+            timeout: TIMEOUT.shell,
             root: true,
           });
         } catch (e) {
@@ -1805,7 +1849,7 @@ class RootServiceClass {
           await this.startScrcpy(ctx);
           try {
             await AdbService.shell('am start -n com.huanli233.systemplus/.ActiveSelfActivity', {
-              timeout: 5000,
+              timeout: TIMEOUT.device,
               root: true,
             });
           } catch {
@@ -1845,7 +1889,7 @@ class RootServiceClass {
     // am start -n org.lsposed.manager/.ui.activity.MainActivity
     try {
       await AdbService.shell('am start -n org.lsposed.manager/.ui.activity.MainActivity', {
-        timeout: 5000,
+        timeout: TIMEOUT.device,
         root: true,
       });
     } catch (e) {
@@ -2261,7 +2305,7 @@ class RootServiceClass {
     // 检查 SystemUI(对应:adb shell pm path com.android.systemui)
     let hasSystemUI = false;
     try {
-      const out = await AdbService.shell('pm path com.android.systemui', { timeout: 5000 });
+      const out = await AdbService.shell('pm path com.android.systemui', { timeout: TIMEOUT.device });
       hasSystemUI = out.trim().length > 0;
     } catch {
       // ignore
@@ -2273,15 +2317,15 @@ class RootServiceClass {
     }
     this.log(ctx, 'warn', '请一定要根据工具的提示来,root 未完成前禁止联网,禁止重复绑定!');
     // setprop persist.sys.charge.usable true
-    await AdbService.shell('setprop persist.sys.charge.usable true', { timeout: 5000 });
+    await AdbService.shell('setprop persist.sys.charge.usable true', { timeout: TIMEOUT.device });
     this.log(ctx, 'info', '充电可用已开启');
     // dumpsys battery unplug
-    await AdbService.shell('dumpsys battery unplug', { timeout: 5000 });
+    await AdbService.shell('dumpsys battery unplug', { timeout: TIMEOUT.device });
     this.log(ctx, 'info', '已模拟未充电状态');
     // svc wifi disable
-    await AdbService.shell('svc wifi disable', { timeout: 5000 });
+    await AdbService.shell('svc wifi disable', { timeout: TIMEOUT.device });
     // wm density 200
-    await AdbService.shell('wm density 200', { timeout: 5000 });
+    await AdbService.shell('wm density 200', { timeout: TIMEOUT.device });
   }
 
   /**
@@ -2323,7 +2367,7 @@ class RootServiceClass {
     this.log(ctx, 'info', '后续步骤将由工具自动完成');
     this.log(ctx, 'info', '开始安装 XTC Patch 模块');
     // setprop persist.sys.rooting true
-    await AdbService.shell('setprop persist.sys.rooting true', { timeout: 5000 });
+    await AdbService.shell('setprop persist.sys.rooting true', { timeout: TIMEOUT.device });
     // instmodule.bat tmp\xtcpatch.zip magisk
     const xtcpatchZip = path.join(paths.cache, 'xtcpatch.zip');
     if (!fs.existsSync(xtcpatchZip)) {
@@ -2335,7 +2379,7 @@ class RootServiceClass {
       }
     }
     // setprop persist.sys.rooting false
-    await AdbService.shell('setprop persist.sys.rooting false', { timeout: 5000 });
+    await AdbService.shell('setprop persist.sys.rooting false', { timeout: TIMEOUT.device });
     this.log(ctx, 'info', '安装 XTC Patch 模块成功');
   }
 
@@ -2375,8 +2419,8 @@ class RootServiceClass {
     //   run_cmd "adb shell pm clear com.android.packageinstaller"
     // 真正的预装 APK 安装在 sdk27-install-bundled-apks stage
     this.log(ctx, 'info', 'wm density reset + pm clear packageinstaller');
-    await AdbService.shell('wm density reset', { timeout: 5000 });
-    await AdbService.shell('pm clear com.android.packageinstaller', { timeout: 10000 });
+    await AdbService.shell('wm density reset', { timeout: TIMEOUT.device });
+    await AdbService.shell('pm clear com.android.packageinstaller', { timeout: TIMEOUT.shell });
   }
 
   /**
@@ -2427,13 +2471,13 @@ class RootServiceClass {
       this.log(ctx, 'info', '激活 SystemPlus 模块');
       await AdbService.shell(
         'sh /data/adb/modules/XTCPatch/active_module.sh com.huanli233.systemplus',
-        { timeout: 15000, root: true },
+        { timeout: TIMEOUT.fileOp, root: true },
       );
       // su -c sh /data/adb/modules/XTCPatch/active_module.sh com.zcg.xtcpatch
       this.log(ctx, 'info', '激活 XTCPatch 模块');
       await AdbService.shell(
         'sh /data/adb/modules/XTCPatch/active_module.sh com.zcg.xtcpatch',
-        { timeout: 15000, root: true },
+        { timeout: TIMEOUT.fileOp, root: true },
       );
       // adb reboot
       this.log(ctx, 'info', '重启手表');
@@ -2649,7 +2693,7 @@ class RootServiceClass {
       args: ['x', nd03Zip, `-o${workDir}`, '-aoa', '-bsp1'],
       cwd: paths.bin,
       encoding: 'utf-8',
-      timeout: 120000,
+      timeout: TIMEOUT.install,
       taskId: ctx.taskId,
       onStdout: (line) => this.log(ctx, 'info', `7z: ${line}`),
     });
@@ -2812,8 +2856,8 @@ class RootServiceClass {
     this.log(ctx, 'info', '请耐心等待设备响应');
     this.log(ctx, 'info', '进入 sideload');
     // adbdevice.bat sideload:等待 sideload 设备出现
-    // 注:原 .bat 用 device_check 检测 sideload,这里用 AdbService 的 sideload 等待
-    // 简化实现:轮询 adb get-state == sideload
+    // 注:原 .bat 用 device_check 检测 sideload,这里轮询 adb get-state == sideload
+    // (对应原 .bat 语义,非简化;device_check 内部也是轮询)
     const start = Date.now();
     while (Date.now() - start < 120000) {
       try {
@@ -2821,7 +2865,7 @@ class RootServiceClass {
           cmd: paths.binFile('adb.exe'),
           args: ['get-state'],
           encoding: 'utf-8',
-          timeout: 5000,
+          timeout: TIMEOUT.device,
           cwd: paths.bin,
           silent: true,
         });
@@ -2857,7 +2901,7 @@ class RootServiceClass {
         cmd: paths.binFile('adb.exe'),
         args: ['sideload', dmZip],
         encoding: 'utf-8',
-        timeout: 20000,
+        timeout: TIMEOUT.transfer,
         cwd: paths.bin,
         taskId: ctx.taskId,
         onStdout: (line) => this.log(ctx, 'info', `sideload: ${line}`),
@@ -2872,7 +2916,7 @@ class RootServiceClass {
         cmd: paths.binFile('adb.exe'),
         args: ['kill-server'],
         encoding: 'utf-8',
-        timeout: 5000,
+        timeout: TIMEOUT.device,
         cwd: paths.bin,
         silent: true,
       });
@@ -2880,7 +2924,7 @@ class RootServiceClass {
         cmd: paths.binFile('adb.exe'),
         args: ['start-server'],
         encoding: 'utf-8',
-        timeout: 5000,
+        timeout: TIMEOUT.device,
         cwd: paths.bin,
         silent: true,
       });
@@ -2939,7 +2983,7 @@ class RootServiceClass {
     let installed = false;
     while (Date.now() - start < 600000) {
       try {
-        const out = await AdbService.shell('pm path bin.mt.plus', { timeout: 5000 });
+        const out = await AdbService.shell('pm path bin.mt.plus', { timeout: TIMEOUT.device });
         if (out.trim().length > 0) {
           installed = true;
           break;
@@ -2960,10 +3004,10 @@ class RootServiceClass {
     // busybox sleep 5
     await new Promise((r) => setTimeout(r, 5000));
     // wm density 288
-    await AdbService.shell('wm density 288', { timeout: 5000 });
+    await AdbService.shell('wm density 288', { timeout: TIMEOUT.device });
     // settings put system screen_off_timeout 2147483647
     await AdbService.shell('settings put system screen_off_timeout 2147483647', {
-      timeout: 5000,
+      timeout: TIMEOUT.device,
     });
     this.log(ctx, 'info', '正在自动打开自动响应,请稍后');
     // busybox sleep 5
@@ -3012,14 +3056,14 @@ class RootServiceClass {
     await AdbService.push(xtcpatchZip, '/sdcard/xtcpatch.zip');
     // adb shell "su -c magisk --install-module /sdcard/xtcpatch.zip"
     await AdbService.shell('magisk --install-module /sdcard/xtcpatch.zip', {
-      timeout: 60000,
+      timeout: TIMEOUT.flash,
       root: true,
     });
     // adb shell "rm -rf /sdcard/xtcpatch.zip"
-    await AdbService.shell('rm -rf /sdcard/xtcpatch.zip', { timeout: 5000 });
+    await AdbService.shell('rm -rf /sdcard/xtcpatch.zip', { timeout: TIMEOUT.device });
     this.log(ctx, 'info', '安装 XTC Patch 模块成功');
     // pm clear com.android.packageinstaller
-    await AdbService.shell('pm clear com.android.packageinstaller', { timeout: 10000 });
+    await AdbService.shell('pm clear com.android.packageinstaller', { timeout: TIMEOUT.shell });
   }
 
   /**
@@ -3041,7 +3085,7 @@ class RootServiceClass {
     this.log(ctx, 'info', '正在勾选作用域,请稍后');
     try {
       await AdbService.shell('am start -n org.lsposed.manager/.ui.activity.MainActivity', {
-        timeout: 5000,
+        timeout: TIMEOUT.device,
         root: true,
       });
     } catch (e) {
@@ -3096,8 +3140,8 @@ class RootServiceClass {
     await new Promise((r) => setTimeout(r, 5000));
     this.log(ctx, 'info', '即将完成');
     // wm density reset + screen_off_timeout 30
-    await AdbService.shell('wm density reset', { timeout: 5000 });
-    await AdbService.shell('settings put system screen_off_timeout 30', { timeout: 5000 });
+    await AdbService.shell('wm density reset', { timeout: TIMEOUT.device });
+    await AdbService.shell('settings put system screen_off_timeout 30', { timeout: TIMEOUT.device });
     // 擦除 misc 并重启
     this.log(ctx, 'info', '擦除 misc 并重启');
     await AdbService.reboot('bootloader');

@@ -1,10 +1,17 @@
-// electron/services/SubprocessPool.ts - 统一管理所有外部 .exe 调用
+// electron/services/SubprocessPool.ts - 子进程统一管理器
+//
+// 职责说明(名称为 Pool 但实为 Runner/Manager):
+//   本类负责管理所有外部 .exe(adb / fastboot / fh_loader / QSaharaServer / edl-ng / 7z 等)
+//   的子进程生命周期,虽名为 "Pool" 但不做进程复用或池化,而是统一封装:
+//   - child_process.spawn(非 execFile,避免 stdout 缓冲区限制)
+//   - iconv-lite 解码 GBK 输出(原 .exe 多为 GBK 编码)
+//   - 行分割:stdout.on('data') 累积,按 \n 切分 emit onStdout 回调
+//   - 超时:timeout 到期 → proc.kill('SIGTERM') → 5 秒后 SIGKILL
+//   - 取消:外部调 pool.kill(taskId) 终止指定任务
+//   - 日志:所有 stdout/stderr 行通过 bus.emit('line') 广播,供日志面板订阅
+//
+// 命名保留 Pool 是历史原因(管理"池"中所有子进程),实际语义更接近 SubprocessRunner。
 // 见 plan.md 6.1 SubprocessPool
-// - 用 child_process.spawn(非 execFile,避免缓冲区限制)
-// - iconv-lite 解码 GBK 输出(原 .exe 多为 GBK)
-// - 行分割:stdout.on('data') 累积,按 \n 切分 emit
-// - 超时:AbortController + proc.kill('SIGTERM') → 5 秒后 SIGKILL
-// - 取消:外部调 pool.kill(taskId)
 
 import { spawn, ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';

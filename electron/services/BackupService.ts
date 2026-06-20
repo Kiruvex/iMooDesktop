@@ -13,6 +13,7 @@
 //   - rec.sh → auto_flash_recovery.sh(源文件名改,目标路径 /data/adb/service.d/rec.sh 保留 Magisk 约定)
 
 import { spawn } from 'node:child_process';
+import { TIMEOUT } from '../lib/timeouts';
 import fs from 'node:fs';
 import path from 'node:path';
 import { SubprocessPool, SpawnError } from './SubprocessPool';
@@ -146,7 +147,7 @@ class BackupServiceClass {
       // 原:for /f "tokens=*" %%i in ('adb shell "!suroot! 'ls /dev/block/bootdevice/by-name/'" 2^>nul') do ( set PART_LIST=%%i )
       onProgress?.('正在获取分区列表...');
       const listOutput = await AdbService.shell('ls /dev/block/bootdevice/by-name/', {
-        timeout: 10000,
+        timeout: TIMEOUT.shell,
         root: true,
       });
       const partitions = listOutput
@@ -206,7 +207,7 @@ class BackupServiceClass {
         cmd: this.sevenZipPath,
         args: ['a', '-tzip', '-y', zipPath, `${backupDir}${path.sep}`],
         encoding: 'utf-8',
-        timeout: 600000,
+        timeout: TIMEOUT.backup,
         cwd: paths.bin,
         onStdout: (line) => onProgress?.(line),
       });
@@ -253,7 +254,7 @@ class BackupServiceClass {
         // 原:for /f "delims=" %%h in ('adb shell "!suroot! 'md5sum !REAL_DEV! 2^>/dev/null'"') do ...
         const remoteOut = await AdbService.shell(
           `md5sum /dev/block/bootdevice/by-name/${part} 2>/dev/null`,
-          { timeout: 30000, root: true },
+          { timeout: TIMEOUT.shellLong, root: true },
         );
         const remoteHash = remoteOut.trim().split(/\s+/)[0];
         if (!remoteHash) {
@@ -321,7 +322,7 @@ class BackupServiceClass {
         cmd: this.sevenZipPath,
         args: ['x', zipPath, `-o${tmpDir}`, '-aoa'],
         encoding: 'utf-8',
-        timeout: 120000,
+        timeout: TIMEOUT.install,
         cwd: paths.bin,
       });
 
@@ -359,7 +360,7 @@ class BackupServiceClass {
       // 原:adb shell "!suroot! 'ls /dev/block/bootdevice/by-name/'" > "%PART_LIST_FILE%" 2>nul
       onProgress?.('正在获取设备分区表...');
       const partListOutput = await AdbService.shell('ls /dev/block/bootdevice/by-name/', {
-        timeout: 10000,
+        timeout: TIMEOUT.shell,
         root: true,
       });
       const deviceParts = new Set(
@@ -560,20 +561,20 @@ class BackupServiceClass {
       // 原:adb shell "su -c cp /sdcard/recovery.img /data/rec.img"
       onProgress?.('安装到 Magisk 服务目录...');
       await AdbService.shell('cp /sdcard/recovery.img /data/rec.img', {
-        timeout: 10000,
+        timeout: TIMEOUT.shell,
         root: true,
       });
 
       // 原:adb shell "su -c cp /sdcard/rec.sh /data/adb/service.d/rec.sh"
       // 改名:源是 auto_flash_recovery.sh,目标保留 /data/adb/service.d/rec.sh(Magisk 约定)
       await AdbService.shell('cp /sdcard/auto_flash_recovery.sh /data/adb/service.d/rec.sh', {
-        timeout: 10000,
+        timeout: TIMEOUT.shell,
         root: true,
       });
 
       // 原:adb shell "chmod 755 -R /data/adb/service.d/rec.sh"
       await AdbService.shell('chmod 755 -R /data/adb/service.d/rec.sh', {
-        timeout: 10000,
+        timeout: TIMEOUT.shell,
         root: true,
       });
 
@@ -850,7 +851,7 @@ class BackupServiceClass {
         cmd: paths.binFile('busybox.exe'),
         args: ['md5sum', filePath],
         encoding: 'utf-8',
-        timeout: 120000,
+        timeout: TIMEOUT.install,
         cwd: paths.bin,
         silent: true,
       });

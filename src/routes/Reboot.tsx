@@ -163,11 +163,11 @@ export function Reboot(): JSX.Element {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <RotateCw className="h-5 w-5 text-blue-500" />
+        <h1 className="page-title">
+          <RotateCw className="title-icon" />
           高级重启
         </h1>
-        <p className="mt-1 text-sm text-zinc-500">选择重启模式。危险操作会高亮提示。</p>
+        <p className="text-desc">选择重启模式。危险操作会高亮提示。</p>
       </div>
 
       {/* 重启模式列表 */}
@@ -226,7 +226,7 @@ export function Reboot(): JSX.Element {
 
       {/* 型号选择面板(需要型号的模式,或 Fastboot 下需要型号) */}
       {selected && (selected.needsModel || (selected.needsModelForFastboot && device?.type === 'fastboot')) && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+        <div className="card">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
             <AlertTriangle className="h-4 w-4 text-amber-500" />
             选择型号
@@ -281,8 +281,8 @@ export function Reboot(): JSX.Element {
           className={cn(
             'rounded-lg border p-4 text-sm',
             result.success
-              ? 'border-green-800/50 bg-green-950/20 text-green-300'
-              : 'border-red-800/50 bg-red-950/20 text-red-300',
+              ? 'alert-ok-color'
+              : 'alert-err-color',
           )}
         >
           <div className="flex items-center gap-2">

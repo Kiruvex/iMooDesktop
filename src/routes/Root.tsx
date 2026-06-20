@@ -227,11 +227,11 @@ export function Root(): JSX.Element {
     <div className="space-y-6">
       {/* 标题 */}
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <ShieldAlert className="h-5 w-5 text-blue-500" />
+        <h1 className="page-title">
+          <ShieldAlert className="title-icon" />
           一键 Root
         </h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="text-desc">
           通过 ADB 或 EDL (9008) 模式 Root 手表。支持 SDK 19/25/27 全流程。
         </p>
       </div>
@@ -258,8 +258,8 @@ export function Root(): JSX.Element {
             开发者不承担任何责任。
           </p>
           <p>
-            <span className="font-medium text-zinc-300">使用限制:</span>
-            Root 后请在 48 小时内恢复官方系统。设备进入长续航/睡眠等禁用模式时,
+            <span className="font-medium text-zinc-300">注意事项:</span>
+            设备进入长续航/睡眠等禁用模式时,
             可滑动到最后一页点击「应用列表」绕过。请勿卸载 SystemPlus 和 XTCPatch,
             请勿删除 Magisk 内置模块,否则设备将无法启动。
           </p>
@@ -337,7 +337,7 @@ export function Root(): JSX.Element {
               <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">
                 选择型号(EDL 模式)
               </h2>
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+              <div className="card">
                 {/* 搜索框 */}
                 <div className="relative mb-3">
                   <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
@@ -385,10 +385,11 @@ export function Root(): JSX.Element {
             </section>
           )}
 
-          {/* SDK25 方案选择(提前选,运行时根据 SDK 分支自动应用) */}
+          {/* SDK25 方案选择(仅 SDK25 或 9008 未知模式时显示) */}
+          {(!device || device.type === 'qcom_edl' || (device.type === 'adb' && device.sdkVersion === '25')) && (
           <section>
             <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-              SDK25 方案(Android 7.1,如适用)
+              SDK25 方案(Android 7.1)
             </h2>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {SDK25_SCHEMES.map((s) => (
@@ -409,6 +410,7 @@ export function Root(): JSX.Element {
               ))}
             </div>
           </section>
+          )}
 
           {/* 不刷 userdata */}
           <section>
@@ -472,7 +474,7 @@ export function Root(): JSX.Element {
       {(isRunning || ctx) && ctx && (
         <>
           {/* 进度卡片 */}
-          <section className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+          <section className="card">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <StageIcon stage={ctx.stage} />
@@ -511,35 +513,35 @@ export function Root(): JSX.Element {
               <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] text-zinc-500 sm:grid-cols-4">
                 {ctx.innermodel && (
                   <div>
-                    <span className="text-zinc-600">innermodel:</span>{' '}
+                    <span className="text-muted">innermodel:</span>{' '}
                     <span className="text-zinc-300">{ctx.innermodel}</span>
                   </div>
                 )}
                 {ctx.sdkVersion && (
                   <div>
-                    <span className="text-zinc-600">SDK:</span>{' '}
+                    <span className="text-muted">SDK:</span>{' '}
                     <span className="text-zinc-300">{ctx.sdkVersion}</span>
                   </div>
                 )}
                 {ctx.androidVersion && (
                   <div>
-                    <span className="text-zinc-600">Android:</span>{' '}
+                    <span className="text-muted">Android:</span>{' '}
                     <span className="text-zinc-300">{ctx.androidVersion}</span>
                   </div>
                 )}
                 <div>
-                  <span className="text-zinc-600">V3:</span>{' '}
+                  <span className="text-muted">V3:</span>{' '}
                   <span className="text-zinc-300">{ctx.isV3 ? '是' : '否'}</span>
                 </div>
                 {ctx.edlPort && (
                   <div>
-                    <span className="text-zinc-600">EDL:</span>{' '}
+                    <span className="text-muted">EDL:</span>{' '}
                     <span className="text-zinc-300">{ctx.edlPort}</span>
                   </div>
                 )}
                 {ctx.sdk25Scheme && (
                   <div>
-                    <span className="text-zinc-600">SDK25 方案:</span>{' '}
+                    <span className="text-muted">SDK25 方案:</span>{' '}
                     <span className="text-zinc-300">{ctx.sdk25Scheme}</span>
                   </div>
                 )}
@@ -619,7 +621,7 @@ export function Root(): JSX.Element {
               className="max-h-96 overflow-y-auto rounded-md border border-zinc-800 bg-zinc-950/80 p-3 font-mono text-[11px] leading-relaxed"
             >
               {ctx.logs.length === 0 ? (
-                <div className="text-zinc-600">暂无日志</div>
+                <div className="text-muted">暂无日志</div>
               ) : (
                 ctx.logs.map((log, i) => (
                   <div

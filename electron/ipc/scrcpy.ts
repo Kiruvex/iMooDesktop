@@ -31,5 +31,24 @@ export function registerScrcpyIpc(): void {
     return ScrcpyService.listRunning();
   });
 
+  // 订阅进程变化事件(launch/exit),替代前端轮询
+  // 每个 webContents 独立订阅,关闭时清理
+  ipcMain.handle('scrcpy:subscribe', (evt) => {
+    const sender = evt.sender;
+    const handler = (data: unknown): void => {
+      if (!sender.isDestroyed()) {
+        sender.send('scrcpy:process-change', data);
+      }
+    };
+    ScrcpyService.on('process-change', handler);
+    // webContents 销毁时自动清理
+    sender.once('did-finish-load', () => {
+      ScrcpyService.off('process-change', handler);
+    });
+    sender.on('destroyed', () => {
+      ScrcpyService.off('process-change', handler);
+    });
+  });
+
   logger.info('ipc', 'scrcpy:* 通道已注册');
 }

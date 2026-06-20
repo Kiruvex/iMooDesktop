@@ -353,11 +353,11 @@ export function Backup(): JSX.Element {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <DatabaseBackup className="h-5 w-5 text-blue-500" />
+        <h1 className="page-title">
+          <DatabaseBackup className="title-icon" />
           备份恢复
         </h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="text-desc">
           DCIM / 9008 / ADB-dd 备份恢复 + 超级恢复 + TWRP 刷入 + Xposed 安装
         </p>
       </div>
@@ -378,7 +378,7 @@ export function Backup(): JSX.Element {
             <div className="max-h-32 overflow-y-auto font-mono text-[10px] leading-relaxed text-zinc-400">
               {progressLines.map((line, i) => (
                 <div key={i} className="truncate">
-                  <span className="text-zinc-600">[{new Date().toLocaleTimeString()}]</span> {line}
+                  <span className="text-muted">[{new Date().toLocaleTimeString()}]</span> {line}
                 </div>
               ))}
               <div ref={progressEndRef} />
@@ -594,7 +594,7 @@ export function Backup(): JSX.Element {
 
       {/* 危险提示 */}
       <section>
-        <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+        <h2 className="section-title">
           <Cpu className="h-3.5 w-3.5" />
           风险提示
         </h2>

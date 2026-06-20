@@ -12,6 +12,7 @@
 //   installFromStore(module): 下载 zip → 调用 install(zip, 'magisk')
 
 import { AdbService } from './AdbService';
+import { TIMEOUT } from '../lib/timeouts';
 import { Logger } from './Logger';
 import { paths } from '../core/paths';
 import https from 'node:https';
@@ -52,7 +53,7 @@ class MagiskServiceClass {
 
     // 执行(原:adb shell "su -c sh /data/local/tmp/magisklistmod.sh")
     const output = await AdbService.shell('sh /data/local/tmp/list_modules.sh', {
-      timeout: 15000,
+      timeout: TIMEOUT.fileOp,
       root: true,
     });
 
@@ -137,17 +138,17 @@ class MagiskServiceClass {
       await AdbService.push(zipPath, '/sdcard/temp_module.zip');
       // 原:adb shell "su -c 'magisk --install-module /sdcard/temp_module.zip'; exit $?"
       await AdbService.shell('magisk --install-module /sdcard/temp_module.zip', {
-        timeout: 60000,
+        timeout: TIMEOUT.flash,
         root: true,
       });
       // 原:adb shell rm /sdcard/temp_module.zip
-      await AdbService.shell('rm /sdcard/temp_module.zip', { timeout: 5000 });
+      await AdbService.shell('rm /sdcard/temp_module.zip', { timeout: TIMEOUT.device });
       logger.info(`模块安装成功(magisk): ${zipPath}`);
       return { success: true };
     } catch (e) {
       // 清理(对应 instmodule.bat :error)
       try {
-        await AdbService.shell('rm /sdcard/temp_module.zip', { timeout: 5000 });
+        await AdbService.shell('rm /sdcard/temp_module.zip', { timeout: TIMEOUT.device });
       } catch {
         // ignore
       }
@@ -166,19 +167,19 @@ class MagiskServiceClass {
       await AdbService.push(scriptPath, '/sdcard/module_installer.sh');
       // 原:adb shell "su -c 'sh /sdcard/sh_module_installer.sh'; exit $?"
       await AdbService.shell('sh /sdcard/module_installer.sh', {
-        timeout: 60000,
+        timeout: TIMEOUT.flash,
         root: true,
       });
       // 清理
       await AdbService.shell('rm /sdcard/temp_module.zip /sdcard/module_installer.sh', {
-        timeout: 5000,
+        timeout: TIMEOUT.device,
       });
       logger.info(`模块安装成功(shinst): ${zipPath}`);
       return { success: true };
     } catch (e) {
       try {
         await AdbService.shell('rm /sdcard/temp_module.zip /sdcard/module_installer.sh', {
-          timeout: 5000,
+          timeout: TIMEOUT.device,
         });
       } catch {
         // ignore
@@ -198,19 +199,19 @@ class MagiskServiceClass {
       await AdbService.push(zipPath, '/sdcard/temp_module.zip');
       // 原:adb shell "su -c 'sh /sdcard/magiskperinster.sh'; exit $?"
       await AdbService.shell('sh /sdcard/magisk_force_install.sh', {
-        timeout: 60000,
+        timeout: TIMEOUT.flash,
         root: true,
       });
       // 清理
       await AdbService.shell('rm /sdcard/temp_module.zip /sdcard/magisk_force_install.sh', {
-        timeout: 5000,
+        timeout: TIMEOUT.device,
       });
       logger.info(`模块安装成功(peremptory): ${zipPath}`);
       return { success: true };
     } catch (e) {
       try {
         await AdbService.shell('rm /sdcard/temp_module.zip /sdcard/magisk_force_install.sh', {
-          timeout: 5000,
+          timeout: TIMEOUT.device,
         });
       } catch {
         // ignore
@@ -233,7 +234,7 @@ class MagiskServiceClass {
     // 检查模块是否存在(对应:adb shell "%suroot% '[ -d /data/adb/modules/%MODULE_ID% ] && echo EXISTS'")
     const existsCheck = await AdbService.shell(
       `[ -d /data/adb/modules/${moduleId} ] && echo EXISTS`,
-      { timeout: 5000, root: true },
+      { timeout: TIMEOUT.device, root: true },
     );
     if (!existsCheck.includes('EXISTS')) {
       return { success: false, error: `模块不存在: ${moduleId}` };
@@ -255,13 +256,13 @@ class MagiskServiceClass {
     try {
       // 原:adb shell "%suroot% 'touch /data/adb/modules/%MODULE_ID%/remove'"
       await AdbService.shell(`touch /data/adb/modules/${moduleId}/remove`, {
-        timeout: 5000,
+        timeout: TIMEOUT.device,
         root: true,
       });
       // 验证(对应:[ -f remove ] && echo OK)
       const check = await AdbService.shell(
         `[ -f /data/adb/modules/${moduleId}/remove ] && echo OK`,
-        { timeout: 5000, root: true },
+        { timeout: TIMEOUT.device, root: true },
       );
       if (!check.includes('OK')) {
         return { success: false, error: '创建标记卸载文件失败' };
@@ -280,12 +281,12 @@ class MagiskServiceClass {
       // 原:adb shell "%suroot% 'touch disable && sleep 1 && rm -rf /data/adb/modules/%MODULE_ID%'"
       await AdbService.shell(
         `touch /data/adb/modules/${moduleId}/disable && sleep 1 && rm -rf /data/adb/modules/${moduleId}`,
-        { timeout: 10000, root: true },
+        { timeout: TIMEOUT.shell, root: true },
       );
       // 验证
       const check = await AdbService.shell(
         `[ ! -d /data/adb/modules/${moduleId} ] && echo OK`,
-        { timeout: 5000, root: true },
+        { timeout: TIMEOUT.device, root: true },
       );
       if (!check.includes('OK')) {
         return { success: false, error: '删除模块目录失败' };
@@ -304,12 +305,12 @@ class MagiskServiceClass {
       // 原:adb shell "%suroot% 'if [ -f uninstall.sh ]; then sh uninstall.sh; fi; rm -rf %MODULE_ID%'"
       await AdbService.shell(
         `if [ -f /data/adb/modules/${moduleId}/uninstall.sh ]; then sh /data/adb/modules/${moduleId}/uninstall.sh; else echo NO_SCRIPT; fi; rm -rf /data/adb/modules/${moduleId}`,
-        { timeout: 15000, root: true },
+        { timeout: TIMEOUT.fileOp, root: true },
       );
       // 验证
       const check = await AdbService.shell(
         `[ ! -d /data/adb/modules/${moduleId} ] && echo OK`,
-        { timeout: 5000, root: true },
+        { timeout: TIMEOUT.device, root: true },
       );
       if (!check.includes('OK')) {
         return { success: false, error: '删除模块目录失败' };
@@ -325,7 +326,7 @@ class MagiskServiceClass {
   async enable(moduleId: string): Promise<{ success: boolean; error?: string }> {
     try {
       await AdbService.shell(`rm /data/adb/modules/${moduleId}/disable`, {
-        timeout: 5000,
+        timeout: TIMEOUT.device,
         root: true,
       });
       return { success: true };
@@ -338,7 +339,7 @@ class MagiskServiceClass {
   async disable(moduleId: string): Promise<{ success: boolean; error?: string }> {
     try {
       await AdbService.shell(`touch /data/adb/modules/${moduleId}/disable`, {
-        timeout: 5000,
+        timeout: TIMEOUT.device,
         root: true,
       });
       return { success: true };
@@ -347,7 +348,7 @@ class MagiskServiceClass {
     }
   }
 
-  // ========== 模块商店(M5 新增) ==========
+  // ========== 模块商店 ==========
 
   /** 商店模块类型 */
   async storeSearch(query: string): Promise<StoreModule[]> {
@@ -416,7 +417,7 @@ class MagiskServiceClass {
         url,
         {
           headers: { 'User-Agent': 'iMooDesktop/1.0' },
-          timeout: 15000,
+          timeout: TIMEOUT.fileOp,
         },
         (res) => {
           if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
@@ -453,7 +454,7 @@ class MagiskServiceClass {
         url,
         {
           headers: { 'User-Agent': 'iMooDesktop/1.0' },
-          timeout: 120000,
+          timeout: TIMEOUT.install,
         },
         (res) => {
           // 处理重定向

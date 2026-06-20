@@ -1,5 +1,5 @@
 // electron/services/UpdateService.ts - 应用自更新检查
-// 对应 plan.md M5 自更新(简化实现:用 https GET 检查 latest.yml,不引入 electron-updater)
+// 对应 plan.md M5 自更新(用 https GET 检查 latest.yml,不引入 electron-updater)
 //
 // 检查流程:
 //   1. 拉 4 镜像站的 latest.yml(任一成功即可)
@@ -32,7 +32,8 @@ export interface UpdateInfo {
 class UpdateServiceClass {
   /**
    * 检查应用更新
-   * 简化实现:从 4 镜像站拉 latest.yml(任意一个成功即可)
+   * 实现:从 links.json 配置的镜像站拉取 latest.yml(多镜像 fallback,任意一个成功即可)
+   * 兜底:GitHub Releases;解析 electron-builder 的 latest.yml 格式(version/path/releaseDate)
    */
   async checkAppUpdate(): Promise<UpdateInfo> {
     const currentVersion = APP_META.version;

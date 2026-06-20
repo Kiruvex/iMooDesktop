@@ -3,6 +3,7 @@
 // 逻辑保真:参数与原 curltool.bat 一致
 
 import { SubprocessPool } from '../services/SubprocessPool';
+import { TIMEOUT } from './timeouts';
 import { Logger } from '../services/Logger';
 import { paths } from '../core/paths';
 
@@ -55,7 +56,7 @@ export async function downloadWithAria2(opts: DownloadOptions): Promise<string> 
     cmd: aria2cPath,
     args,
     encoding: 'utf-8',
-    timeout: 600000, // 10 分钟
+    timeout: TIMEOUT.backup, // 10 分钟
     cwd: paths.bin,
     taskId,
     onStdout: (line) => {

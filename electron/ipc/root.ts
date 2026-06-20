@@ -10,10 +10,13 @@
 //
 // 事件(主进程 → 渲染进程):
 //   - root:stage-change → 推送 RootContext(每次 stage 变化时)
+//
+// 重构:用 wrap 高阶函数消除重复 try-catch
 
 import { ipcMain } from 'electron';
 import { RootService, type RootOptions, type RootContext } from '../services/RootService';
 import { Logger } from '../services/Logger';
+import { wrap } from '../lib/ipcHelper';
 
 const logger = Logger.instance;
 
@@ -21,70 +24,45 @@ export function registerRootIpc(): void {
   // 启动 Root 流程
   ipcMain.handle(
     'root:start',
-    async (_evt, options: RootOptions): Promise<{ success: boolean; taskId?: string; error?: string }> => {
-      try {
-        const taskId = await RootService.start(options);
-        return { success: true, taskId };
-      } catch (e) {
-        logger.error('root', `启动 Root 失败: ${(e as Error).message}`);
-        return { success: false, error: (e as Error).message };
-      }
-    },
+    wrap((options: RootOptions) =>
+      RootService.start(options).then((taskId) => ({ success: true, taskId })),
+    { logPrefix: 'root' }),
   );
 
   // 取消(尝试恢复 DCIM,不回滚已刷的分区)
   ipcMain.handle(
     'root:cancel',
-    async (_evt, { taskId }: { taskId: string }): Promise<{ success: boolean; error?: string }> => {
-      try {
-        await RootService.cancel(taskId);
-        return { success: true };
-      } catch (e) {
-        return { success: false, error: (e as Error).message };
-      }
-    },
+    wrap(({ taskId }: { taskId: string }) =>
+      RootService.cancel(taskId).then(() => ({ success: true })),
+    { logPrefix: 'root' }),
   );
 
   // 暂停(在下一个状态边界停下)
   ipcMain.handle(
     'root:pause',
-    async (_evt, { taskId }: { taskId: string }): Promise<{ success: boolean; error?: string }> => {
-      try {
-        await RootService.pause(taskId);
-        return { success: true };
-      } catch (e) {
-        return { success: false, error: (e as Error).message };
-      }
-    },
+    wrap(({ taskId }: { taskId: string }) =>
+      RootService.pause(taskId).then(() => ({ success: true })),
+    { logPrefix: 'root' }),
   );
 
   // 恢复
   ipcMain.handle(
     'root:resume',
-    async (_evt, { taskId }: { taskId: string }): Promise<{ success: boolean; error?: string }> => {
-      try {
-        await RootService.resume(taskId);
-        return { success: true };
-      } catch (e) {
-        return { success: false, error: (e as Error).message };
-      }
-    },
+    wrap(({ taskId }: { taskId: string }) =>
+      RootService.resume(taskId).then(() => ({ success: true })),
+    { logPrefix: 'root' }),
   );
 
   // 获取当前 context
   ipcMain.handle(
     'root:get-context',
-    async (_evt, { taskId }: { taskId: string }): Promise<{ success: boolean; context?: RootContext; error?: string }> => {
-      try {
-        const ctx = RootService.getContext(taskId);
-        if (!ctx) {
-          return { success: false, error: `任务不存在: ${taskId}` };
-        }
-        return { success: true, context: ctx };
-      } catch (e) {
-        return { success: false, error: (e as Error).message };
+    wrap(({ taskId }: { taskId: string }) => {
+      const ctx = RootService.getContext(taskId);
+      if (!ctx) {
+        return { success: false, error: `任务不存在: ${taskId}` };
       }
-    },
+      return { success: true, context: ctx as RootContext };
+    }, { logPrefix: 'root' }),
   );
 
   logger.info('ipc', 'root:* 通道已注册');

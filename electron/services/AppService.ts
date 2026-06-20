@@ -21,6 +21,7 @@
 // APK 文件名保留原样(见 plan.md 2.5.4):z10apk.Apk / z10apk1.Apk 不改
 
 import { AdbService } from './AdbService';
+import { TIMEOUT } from '../lib/timeouts';
 import { SubprocessPool, SpawnError } from './SubprocessPool';
 import { Logger } from './Logger';
 import { paths } from '../core/paths';
@@ -111,7 +112,7 @@ class AppServiceClass {
         cmd: paths.binFile('adb.exe'),
         args: ['root'],
         encoding: 'gbk',
-        timeout: 10000,
+        timeout: TIMEOUT.shell,
         cwd: paths.bin,
       });
       if (!result.stdout.includes('restarting') && !result.stdout.includes('already')) {
@@ -144,7 +145,7 @@ class AppServiceClass {
     ok = await runStep(6, async () => {
       await AdbService.shell(
         'cp -R /sdcard/switch.db /data/data/com.xtc.i3launcher/databases/switch.db',
-        { timeout: 10000 },
+        { timeout: TIMEOUT.shell },
       );
     });
     if (!ok) return { success: false, steps, error: steps[6].message };
@@ -198,7 +199,7 @@ class AppServiceClass {
         await AdbService.shell(
           `content call --uri content://com.xtc.launcher.self.start ` +
             `--method METHOD_SELF_START --extra EXTRA_ENABLE:b:true --arg ${pkg}`,
-          { timeout: 10000 },
+          { timeout: TIMEOUT.shell },
         );
         results.push({ pkg, success: true });
       } catch (e) {
@@ -223,7 +224,7 @@ class AppServiceClass {
         cmd: paths.binFile('adb.exe'),
         args: ['install', '-r', '-t', '-d', apkPath],
         encoding: 'gbk',
-        timeout: 120000,
+        timeout: TIMEOUT.install,
         cwd: paths.bin,
         onStdout: (line) => logger.info(`install: ${line}`),
       });

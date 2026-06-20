@@ -37,7 +37,6 @@ import {
   Trash2,
   Package,
   Loader2,
-  CheckCircle2,
   AlertTriangle,
   ChevronLeft,
   HardDrive,
@@ -70,6 +69,8 @@ import {
 } from '../lib/api';
 import { cn, formatBytes } from '../lib/utils';
 import { useDeviceStore } from '../stores/deviceStore';
+import { toast } from '../stores/toastStore';
+import { ApkPreviewDialog } from '../components/common/ApkPreviewDialog';
 
 // 快捷路径图标映射
 const QUICK_ICON_MAP: Record<string, ComponentType<LucideProps>> = {
@@ -99,7 +100,6 @@ export function Files(): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [disk, setDisk] = useState<DiskInfo | null>(null);
-  const [toast, setToast] = useState<{ kind: 'ok' | 'err'; msg: string } | null>(null);
   const [addressValue, setAddressValue] = useState('/sdcard');
   const [editingAddress, setEditingAddress] = useState(false);
   const [quickPaths, setQuickPaths] = useState<QuickPath[]>([]);
@@ -153,11 +153,6 @@ export function Files(): JSX.Element {
 
   const listAbortRef = useRef(0);
 
-  const showToast = useCallback((kind: 'ok' | 'err', msg: string): void => {
-    setToast({ kind, msg });
-    window.setTimeout(() => setToast(null), 3000);
-  }, []);
-
   // 加载快捷路径
   useEffect(() => {
     api.file.quickPaths().then((r) => {
@@ -186,8 +181,11 @@ export function Files(): JSX.Element {
 
   useEffect(() => {
     void refreshDevices();
-    const timer = window.setInterval(refreshDevices, 5000);
-    return () => window.clearInterval(timer);
+    // 订阅设备变化事件(替代轮询),USB 插拔/状态切换时刷新设备列表
+    const unsub = api.device.onChange(() => {
+      void refreshDevices();
+    });
+    return unsub;
   }, [refreshDevices]);
 
   // 订阅传输进度
@@ -400,12 +398,12 @@ export function Files(): JSX.Element {
     const newPath = joinPath(cwd, name);
     const res = await api.file.mkdir(newPath, true);
     if (res.success) {
-      showToast('ok', `已创建文件夹: ${name}`);
+      toast.ok(`已创建文件夹: ${name}`);
       setNewFolderOpen(false);
       setNewFolderName('');
       await loadDir(cwd, false);
     } else {
-      showToast('err', `创建失败: ${res.error}`);
+      toast.err(`创建失败: ${res.error}`);
     }
   };
 
@@ -416,13 +414,13 @@ export function Files(): JSX.Element {
     const newPath = joinPath(cwd, name);
     const res = await api.file.createFile(newPath, newFileContent);
     if (res.success) {
-      showToast('ok', `已创建文件: ${name}`);
+      toast.ok(`已创建文件: ${name}`);
       setNewFileOpen(false);
       setNewFileName('');
       setNewFileContent('');
       await loadDir(cwd, false);
     } else {
-      showToast('err', `创建失败: ${res.error}`);
+      toast.err(`创建失败: ${res.error}`);
     }
   };
 
@@ -439,9 +437,9 @@ export function Files(): JSX.Element {
       const remote = joinPath(cwd, name);
       const res = await api.file.push(f, remote, selectedSerial);
       if (res.success) {
-        showToast('ok', `已上传: ${name}`);
+        toast.ok(`已上传: ${name}`);
       } else {
-        showToast('err', `上传失败: ${name} - ${res.error}`);
+        toast.err(`上传失败: ${name} - ${res.error}`);
       }
     }
     await loadDir(cwd, false);
@@ -454,9 +452,9 @@ export function Files(): JSX.Element {
     const local = picked.endsWith('\\') || picked.endsWith('/') ? picked + entry.name : picked + '/' + entry.name;
     const res = await api.file.pull(entry.path, local, selectedSerial);
     if (res.success) {
-      showToast('ok', `已下载到: ${local}`);
+      toast.ok(`已下载到: ${local}`);
     } else {
-      showToast('err', `下载失败: ${res.error}`);
+      toast.err(`下载失败: ${res.error}`);
     }
   };
 
@@ -470,10 +468,10 @@ export function Files(): JSX.Element {
       const local = picked.endsWith('\\') || picked.endsWith('/') ? picked + entry.name : picked + '/' + entry.name;
       const res = await api.file.pull(entry.path, local, selectedSerial);
       if (!res.success) {
-        showToast('err', `下载失败: ${entry.name} - ${res.error}`);
+        toast.err(`下载失败: ${entry.name} - ${res.error}`);
       }
     }
-    showToast('ok', `批量下载完成(${targets.filter((e) => !e.isDir).length} 个文件)`);
+    toast.ok(`批量下载完成(${targets.filter((e) => !e.isDir).length} 个文件)`);
   };
 
   // 操作:删除单个
@@ -481,7 +479,7 @@ export function Files(): JSX.Element {
     if (!window.confirm(`确定删除 "${entry.name}"?${entry.isDir ? ' (目录将递归删除)' : ''}`)) return;
     const res = await api.file.remove(entry.path, true);
     if (res.success) {
-      showToast('ok', `已删除: ${entry.name}`);
+      toast.ok(`已删除: ${entry.name}`);
       setSelected((prev) => {
         const next = new Set(prev);
         next.delete(entry.path);
@@ -489,7 +487,7 @@ export function Files(): JSX.Element {
       });
       await loadDir(cwd, false);
     } else {
-      showToast('err', `删除失败: ${res.error}`);
+      toast.err(`删除失败: ${res.error}`);
     }
   };
 
@@ -503,14 +501,14 @@ export function Files(): JSX.Element {
       const okCount = res.deleted.length;
       const failCount = res.failed.length;
       if (failCount === 0) {
-        showToast('ok', `已删除 ${okCount} 项`);
+        toast.ok(`已删除 ${okCount} 项`);
       } else {
-        showToast('err', `成功 ${okCount} 项,失败 ${failCount} 项`);
+        toast.err(`成功 ${okCount} 项,失败 ${failCount} 项`);
       }
       clearSelection();
       await loadDir(cwd, false);
     } else {
-      showToast('err', `批量删除失败: ${res.error}`);
+      toast.err(`批量删除失败: ${res.error}`);
     }
   };
 
@@ -525,32 +523,47 @@ export function Files(): JSX.Element {
     const newPath = joinPath(cwd, newName);
     const res = await api.file.rename(renameTarget.entry.path, newPath);
     if (res.success) {
-      showToast('ok', `已重命名为: ${newName}`);
+      toast.ok(`已重命名为: ${newName}`);
       setRenameTarget(null);
       await loadDir(cwd, false);
     } else {
-      showToast('err', `重命名失败: ${res.error}`);
+      toast.err(`重命名失败: ${res.error}`);
     }
   };
 
   // 操作:安装 APK
   const handleInstallApk = async (entry: FileEntry): Promise<void> => {
     if (!window.confirm(`安装设备上的 APK: ${entry.name}?`)) return;
-    showToast('ok', `正在安装: ${entry.name}...`);
+    toast.ok(`正在安装: ${entry.name}...`);
     const res = await api.file.installApk(entry.path);
     if (res.success) {
-      showToast('ok', `安装成功: ${entry.name}`);
+      toast.ok(`安装成功: ${entry.name}`);
     } else {
-      showToast('err', `安装失败: ${res.error}`);
+      toast.err(`安装失败: ${res.error}`);
     }
   };
 
+  const [localApkPreview, setLocalApkPreview] = useState<string | null>(null);
+
   const handleInstallLocalApk = async (): Promise<void> => {
-    const res = await api.file.installLocalApk();
+    // 选文件后弹 APK 预览,确认后安装
+    const picked = await api.system.pickFile({
+      kind: 'open',
+      filter: 'APK 文件|*.apk;所有文件|*.*',
+    });
+    if (!picked) return;
+    const apkPath = Array.isArray(picked) ? picked[0] : picked;
+    setLocalApkPreview(apkPath);
+  };
+
+  const handleConfirmLocalInstall = async (apkPath: string): Promise<void> => {
+    setLocalApkPreview(null);
+    toast.ok('正在安装...');
+    const res = await api.app.install(apkPath);
     if (res.success) {
-      showToast('ok', `安装成功${res.pkg ? ': ' + res.pkg : ''}`);
-    } else if (res.error && res.error !== '未选择文件') {
-      showToast('err', `安装失败: ${res.error}`);
+      toast.ok(`安装成功`);
+    } else {
+      toast.err(`安装失败: ${res.error}`);
     }
   };
 
@@ -561,7 +574,7 @@ export function Files(): JSX.Element {
     if (res.success) {
       setEditorTarget({ entry, content: res.content, loading: false, dirty: false });
     } else {
-      showToast('err', `读取失败: ${res.error}`);
+      toast.err(`读取失败: ${res.error}`);
       setEditorTarget(null);
     }
   };
@@ -570,10 +583,10 @@ export function Files(): JSX.Element {
     if (!editorTarget) return;
     const res = await api.file.writeFile(editorTarget.entry.path, editorTarget.content);
     if (res.success) {
-      showToast('ok', `已保存: ${editorTarget.entry.name}`);
+      toast.ok(`已保存: ${editorTarget.entry.name}`);
       setEditorTarget({ ...editorTarget, dirty: false });
     } else {
-      showToast('err', `保存失败: ${res.error}`);
+      toast.err(`保存失败: ${res.error}`);
     }
   };
 
@@ -582,11 +595,11 @@ export function Files(): JSX.Element {
     if (!chmodTarget) return;
     const res = await api.file.chmod(chmodTarget.entry.path, chmodTarget.mode, chmodTarget.recursive);
     if (res.success) {
-      showToast('ok', `权限已修改: ${chmodTarget.mode}`);
+      toast.ok(`权限已修改: ${chmodTarget.mode}`);
       setChmodTarget(null);
       await loadDir(cwd, false);
     } else {
-      showToast('err', `修改失败: ${res.error}`);
+      toast.err(`修改失败: ${res.error}`);
     }
   };
 
@@ -595,13 +608,13 @@ export function Files(): JSX.Element {
     const targets = entries.filter((e) => selected.has(e.path)).map((e) => e.path);
     if (targets.length === 0) return;
     setClipboard({ paths: targets, mode: 'copy' });
-    showToast('ok', `已复制 ${targets.length} 项`);
+    toast.ok(`已复制 ${targets.length} 项`);
   };
   const handleCut = (): void => {
     const targets = entries.filter((e) => selected.has(e.path)).map((e) => e.path);
     if (targets.length === 0) return;
     setClipboard({ paths: targets, mode: 'cut' });
-    showToast('ok', `已剪切 ${targets.length} 项`);
+    toast.ok(`已剪切 ${targets.length} 项`);
   };
   const handlePaste = async (): Promise<void> => {
     if (!clipboard || clipboard.paths.length === 0) return;
@@ -615,10 +628,10 @@ export function Files(): JSX.Element {
           await api.file.rename(src, dst);
         }
       } catch (e) {
-        showToast('err', `粘贴失败: ${name} - ${(e as Error).message}`);
+        toast.err(`粘贴失败: ${name} - ${(e as Error).message}`);
       }
     }
-    showToast('ok', `已粘贴 ${clipboard.paths.length} 项`);
+    toast.ok(`已粘贴 ${clipboard.paths.length} 项`);
     if (clipboard.mode === 'cut') setClipboard(null);
     clearSelection();
     await loadDir(cwd, false);
@@ -635,7 +648,7 @@ export function Files(): JSX.Element {
     } catch {
       // ignore
     }
-    showToast('ok', `已添加书签: ${name}`);
+    toast.ok(`已添加书签: ${name}`);
   };
   const removeBookmark = (path: string): void => {
     const next = bookmarks.filter((b) => b.path !== path);
@@ -657,10 +670,10 @@ export function Files(): JSX.Element {
       const remote = joinPath(cwd, f.name);
       const res = await api.file.push(f.path, remote, selectedSerial);
       if (!res.success) {
-        showToast('err', `上传失败: ${f.name} - ${res.error}`);
+        toast.err(`上传失败: ${f.name} - ${res.error}`);
       }
     }
-    showToast('ok', `已上传 ${files.length} 个文件`);
+    toast.ok(`已上传 ${files.length} 个文件`);
     await loadDir(cwd, false);
   };
 
@@ -730,11 +743,11 @@ export function Files(): JSX.Element {
       {/* 标题 + 设备选择器 + 刷新 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold">
-            <FolderOpen className="h-5 w-5 text-blue-500" />
+          <h1 className="page-title">
+            <FolderOpen className="title-icon" />
             文件管理
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">浏览/传输/管理设备文件</p>
+          <p className="text-desc">浏览/传输/管理设备文件</p>
         </div>
         <div className="flex items-center gap-2">
           <select
@@ -778,28 +791,28 @@ export function Files(): JSX.Element {
         <button
           onClick={goBack}
           disabled={!canBack || !hasDevice}
-          className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50"
+          className="btn-secondary"
         >
           <ChevronLeft className="h-3.5 w-3.5" /> 后退
         </button>
         <button
           onClick={goForward}
           disabled={!canForward || !hasDevice}
-          className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50"
+          className="btn-secondary"
         >
           <ChevronRight className="h-3.5 w-3.5" /> 前进
         </button>
         <button
           onClick={goUp}
           disabled={!hasDevice || cwd === '/'}
-          className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50"
+          className="btn-secondary"
         >
           <ArrowUp className="h-3.5 w-3.5" /> 上一级
         </button>
         <button
           onClick={goHome}
           disabled={!hasDevice}
-          className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50"
+          className="btn-secondary"
         >
           <Home className="h-3.5 w-3.5" /> 主页
         </button>
@@ -810,21 +823,21 @@ export function Files(): JSX.Element {
         <button
           onClick={() => setNewFolderOpen(true)}
           disabled={!hasDevice}
-          className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="btn-primary"
         >
           <FolderPlus className="h-3.5 w-3.5" /> 新建文件夹
         </button>
         <button
           onClick={() => setNewFileOpen(true)}
           disabled={!hasDevice}
-          className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="btn-primary"
         >
           <FilePlus className="h-3.5 w-3.5" /> 新建文件
         </button>
         <button
           onClick={() => void handleUpload()}
           disabled={!hasDevice}
-          className="flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="btn-primary"
         >
           <Upload className="h-3.5 w-3.5" /> 上传
         </button>
@@ -834,7 +847,7 @@ export function Files(): JSX.Element {
         <button
           onClick={() => void handleBatchDownload()}
           disabled={!hasDevice || selectedCount === 0}
-          className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50"
+          className="btn-secondary"
         >
           <Download className="h-3.5 w-3.5" /> 下载
         </button>
@@ -844,7 +857,7 @@ export function Files(): JSX.Element {
             if (e) setRenameTarget({ entry: e, newName: e.name });
           }}
           disabled={!hasDevice || selectedCount !== 1}
-          className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50"
+          className="btn-secondary"
         >
           <Pencil className="h-3.5 w-3.5" /> 重命名
         </button>
@@ -861,21 +874,21 @@ export function Files(): JSX.Element {
         <button
           onClick={handleCopy}
           disabled={selectedCount === 0}
-          className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50"
+          className="btn-secondary"
         >
           <Copy className="h-3.5 w-3.5" /> 复制
         </button>
         <button
           onClick={handleCut}
           disabled={selectedCount === 0}
-          className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50"
+          className="btn-secondary"
         >
           <Scissors className="h-3.5 w-3.5" /> 剪切
         </button>
         <button
           onClick={() => void handlePaste()}
           disabled={!clipboard || !hasDevice}
-          className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50"
+          className="btn-secondary"
         >
           <ClipboardPaste className="h-3.5 w-3.5" /> 粘贴
         </button>
@@ -885,7 +898,7 @@ export function Files(): JSX.Element {
         <button
           onClick={handleInstallLocalApk}
           disabled={!hasDevice}
-          className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50"
+          className="btn-secondary"
         >
           <Package className="h-3.5 w-3.5" /> 安装 APK
         </button>
@@ -895,33 +908,20 @@ export function Files(): JSX.Element {
             if (e) setChmodTarget({ entry: e, mode: '644', recursive: e.isDir });
           }}
           disabled={!hasDevice || selectedCount !== 1}
-          className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50"
+          className="btn-secondary"
         >
           <Lock className="h-3.5 w-3.5" /> 权限
         </button>
         <button
           onClick={addBookmark}
           disabled={!hasDevice}
-          className="flex items-center gap-1.5 rounded-md border border-zinc-800 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 disabled:opacity-50"
+          className="btn-secondary"
         >
           <BookmarkPlus className="h-3.5 w-3.5" /> 书签
         </button>
       </div>
 
-      {/* 操作结果 */}
-      {toast && (
-        <div
-          className={cn(
-            'flex items-center gap-2 rounded-md border p-3 text-sm',
-            toast.kind === 'ok'
-              ? 'border-green-800/50 bg-green-950/20 text-green-300'
-              : 'border-red-800/50 bg-red-950/20 text-red-300',
-          )}
-        >
-          {toast.kind === 'ok' ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-          <span>{toast.msg}</span>
-        </div>
-      )}
+      {/* 操作结果(用全局 toast,见 Toaster 组件) */}
 
       {/* 传输进度 */}
       {transfer && (
@@ -946,11 +946,11 @@ export function Files(): JSX.Element {
 
       {/* 文件列表 section */}
       <section>
-        <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+        <h2 className="section-title">
           <FolderOpen className="h-3.5 w-3.5" />
           文件列表 {selectedCount > 0 && `(已选 ${selectedCount} 项)`}
         </h2>
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+        <div className="card">
           {/* 搜索 + 排序 + 视图 + 选项 */}
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <div className="relative flex-1 max-w-xs">
@@ -1669,6 +1669,13 @@ export function Files(): JSX.Element {
           )}
         </div>
       )}
+
+      {/* 本地 APK 预览弹窗 */}
+      <ApkPreviewDialog
+        apkPath={localApkPreview}
+        onConfirm={(path) => void handleConfirmLocalInstall(path)}
+        onClose={() => setLocalApkPreview(null)}
+      />
     </div>
   );
 }

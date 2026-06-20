@@ -10,15 +10,13 @@ export function WindowControls(): JSX.Element {
   const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
+    // 初次获取当前状态
     api.system.windowIsMaximized().then(setMaximized).catch(() => {
       // ignore
     });
-    const timer = setInterval(() => {
-      api.system.windowIsMaximized().then(setMaximized).catch(() => {
-        // ignore
-      });
-    }, 500);
-    return () => clearInterval(timer);
+    // 订阅窗口状态变化事件(替代轮询)
+    const unsub = api.system.onWindowState((state) => setMaximized(state.maximized));
+    return unsub;
   }, []);
 
   return (

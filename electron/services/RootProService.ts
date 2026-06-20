@@ -1,5 +1,5 @@
 // electron/services/RootProService.ts - Android 8.1 Root 后优化(SDK27 专属)
-// 对应原 rootpro.bat(M5)
+// 对应原 rootpro.bat
 //
 // 逻辑保真(命令参数逐字一致):
 //   rootpro.bat 流程:
@@ -18,6 +18,7 @@
 // 注:原 .bat 用 set /p 接收用户输入(y 跳过);这里通过 options 由 UI 决定是否执行各步骤
 
 import { AdbService } from './AdbService';
+import { TIMEOUT } from '../lib/timeouts';
 import { MagiskService } from './MagiskService';
 import { Logger } from './Logger';
 import { paths } from '../core/paths';
@@ -172,7 +173,7 @@ class RootProServiceClass {
     // 步骤 6:检查 SystemUI(对应:adb shell pm path com.android.systemui)
     let haveSystemUI = false;
     ok = await runStep(5, async () => {
-      const out = await AdbService.shell('pm path com.android.systemui', { timeout: 10000 });
+      const out = await AdbService.shell('pm path com.android.systemui', { timeout: TIMEOUT.shell });
       // 原 .bat:if %errorlevel%==0 set havesystemui=1
       // pm path 返回非空(包名前缀 package:)=存在
       haveSystemUI = out.trim().length > 0 && out.includes('package:');

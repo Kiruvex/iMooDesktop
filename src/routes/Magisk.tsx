@@ -180,11 +180,11 @@ export function Magisk(): JSX.Element {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold">
-            <Boxes className="h-5 w-5 text-blue-500" />
+          <h1 className="page-title">
+            <Boxes className="title-icon" />
             Magisk 模块管理
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">模块安装/卸载/启用/禁用/列表/商店</p>
+          <p className="text-desc">模块安装/卸载/启用/禁用/列表/商店</p>
         </div>
         <button
           onClick={loadModules}
@@ -196,16 +196,16 @@ export function Magisk(): JSX.Element {
         </button>
       </div>
 
-      {/* 模块商店(M5 新增) */}
+      {/* 模块商店 */}
       <ModuleStore />
 
       {/* 安装方式选择 + 安装按钮 */}
       <section>
-        <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+        <h2 className="section-title">
           <Upload className="h-3.5 w-3.5" />
           安装模块
         </h2>
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+        <div className="card">
           <div className="mb-3">
             <div className="mb-2 text-[10px] text-zinc-500">安装方式(对应 instmodule.bat)</div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -244,11 +244,11 @@ export function Magisk(): JSX.Element {
 
       {/* 卸载方式选择 */}
       <section>
-        <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+        <h2 className="section-title">
           <Trash2 className="h-3.5 w-3.5" />
           卸载方式(应用于下方模块列表)
         </h2>
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+        <div className="card">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {UNINSTALL_METHODS.map((m) => (
               <button
@@ -276,8 +276,8 @@ export function Magisk(): JSX.Element {
           className={cn(
             'flex items-center gap-2 rounded-md border p-3 text-sm',
             result.success
-              ? 'border-green-800/50 bg-green-950/20 text-green-300'
-              : 'border-red-800/50 bg-red-950/20 text-red-300',
+              ? 'alert-ok-color'
+              : 'alert-err-color',
           )}
         >
           {result.success ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertTriangle className="h-4 w-4 shrink-0" />}
@@ -291,7 +291,7 @@ export function Magisk(): JSX.Element {
           <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
             <Package className="h-3.5 w-3.5" />
             已安装模块
-            <span className="text-zinc-600">({modules.length})</span>
+            <span className="text-muted">({modules.length})</span>
           </h2>
         </div>
 
@@ -374,30 +374,30 @@ export function Magisk(): JSX.Element {
                     <div className="border-t border-zinc-800/60 px-3 py-3">
                       {mod.description && (
                         <div className="mb-2 text-xs text-zinc-400">
-                          <span className="text-zinc-600">描述:</span> {mod.description}
+                          <span className="text-muted">描述:</span> {mod.description}
                         </div>
                       )}
                       <div className="mb-3 grid grid-cols-2 gap-1 text-[10px] text-zinc-500 sm:grid-cols-4">
                         <div>
-                          <span className="text-zinc-600">状态:</span>{' '}
+                          <span className="text-muted">状态:</span>{' '}
                           <span className="text-zinc-400">{mod.status || '未知'}</span>
                         </div>
                         <div>
-                          <span className="text-zinc-600">版本:</span>{' '}
+                          <span className="text-muted">版本:</span>{' '}
                           <span className="text-zinc-400">{mod.version || '未知'}</span>
                         </div>
                         <div>
-                          <span className="text-zinc-600">内部版本:</span>{' '}
+                          <span className="text-muted">内部版本:</span>{' '}
                           <span className="text-zinc-400">{mod.versionCode || '未知'}</span>
                         </div>
                         <div className="truncate">
-                          <span className="text-zinc-600">作者:</span>{' '}
+                          <span className="text-muted">作者:</span>{' '}
                           <span className="text-zinc-400">{mod.author || '未知'}</span>
                         </div>
                       </div>
                       {mod.updateJson && (
                         <div className="mb-3 truncate text-[10px] text-zinc-500">
-                          <span className="text-zinc-600">更新地址:</span> {mod.updateJson}
+                          <span className="text-muted">更新地址:</span> {mod.updateJson}
                         </div>
                       )}
 
@@ -462,7 +462,7 @@ export function Magisk(): JSX.Element {
   );
 }
 
-// ========== 模块商店(M5 新增) ==========
+// ========== 模块商店 ==========
 
 function ModuleStore(): JSX.Element {
   const device = useDeviceStore((s) => s.current);
@@ -521,12 +521,11 @@ function ModuleStore(): JSX.Element {
 
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+      <h2 className="section-title">
         <Store className="h-3.5 w-3.5" />
         模块商店
-        <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-500">M5</span>
       </h2>
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+      <div className="card">
         {noDevice && (
           <div className="mb-3 flex items-center gap-2 rounded-md border border-amber-800/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-300">
             <WifiOff className="h-3.5 w-3.5 shrink-0" />
@@ -563,8 +562,8 @@ function ModuleStore(): JSX.Element {
             className={cn(
               'mt-3 flex items-center gap-2 rounded-md border p-2.5 text-xs',
               result.success
-                ? 'border-green-800/50 bg-green-950/20 text-green-300'
-                : 'border-red-800/50 bg-red-950/20 text-red-300',
+                ? 'alert-ok-color'
+                : 'alert-err-color',
             )}
           >
             {result.success ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> : <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}

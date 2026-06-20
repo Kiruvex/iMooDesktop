@@ -40,6 +40,11 @@ class Paths {
     return fixAsarPath(path.join(this.resources, 'bin'));
   }
 
+  /** resources/bin/edl-ng/ - edl-ng 工具目录(asarUnpack) */
+  get edlNg(): string {
+    return fixAsarPath(path.join(this.bin, 'edl-ng'));
+  }
+
   /** resources/edl/ - EDL 资源(asarUnpack) */
   get edl(): string {
     return fixAsarPath(path.join(this.resources, 'edl'));
@@ -94,6 +99,11 @@ class Paths {
   /** 拼接 bin/ 下的文件路径(asarUnpack) */
   binFile(name: string): string {
     return path.join(this.bin, name);
+  }
+
+  /** 拼接 bin/edl-ng/ 下的文件路径(asarUnpack) */
+  edlNgFile(name: string): string {
+    return path.join(this.edlNg, name);
   }
 
   /** 拼接 edl/ 下的文件路径(asarUnpack) */

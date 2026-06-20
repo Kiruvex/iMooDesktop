@@ -1,6 +1,6 @@
 # iMooDesktop
 
-XTC 电话手表工具箱 —— 基于 AllToolBox 1.3.8fix1 的现代化重构。
+XTC 电话手表工具箱 —— 独立项目,参考 AllToolBox 的业务逻辑,用 Electron + React 重新实现。
 
 ## 技术栈
 

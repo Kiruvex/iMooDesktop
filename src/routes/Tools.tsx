@@ -33,11 +33,11 @@ export function Tools(): JSX.Element {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <Wrench className="h-5 w-5 text-blue-500" />
+        <h1 className="page-title">
+          <Wrench className="title-icon" />
           其他工具
         </h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="text-desc">
           scrcpy 投屏、充电、无线 ADB、设备信息、OTA 升级、驱动检测、.atbmod 模块
         </p>
       </div>
@@ -79,11 +79,11 @@ function OpenCharge(): JSX.Element {
 
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+      <h2 className="section-title">
         <BatteryCharging className="h-3.5 w-3.5" />
         充电可用
       </h2>
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+      <div className="card">
         <p className="mb-3 text-xs text-zinc-400">
           开启后设备可在充电时使用(需 root 权限)。对应 setprop persist.sys.charge.usable true
         </p>
@@ -171,11 +171,11 @@ function WifiAdb(): JSX.Element {
 
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+      <h2 className="section-title">
         <Network className="h-3.5 w-3.5" />
         无线调试 (ADB)
       </h2>
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+      <div className="card">
         <div className="mb-3 flex flex-wrap items-end gap-2">
           <div>
             <label className="mb-1 block text-[10px] text-zinc-500">设备 IP</label>
@@ -356,8 +356,12 @@ function ScrcpyLauncher(): JSX.Element {
 
   useEffect(() => {
     refreshRunning();
-    const timer = setInterval(refreshRunning, 2000);
-    return () => clearInterval(timer);
+    // 订阅 scrcpy 进程变化事件(替代轮询),launch/exit 时刷新列表
+    void api.scrcpy.subscribe();
+    const unsub = api.scrcpy.onProcessChange(() => {
+      void refreshRunning();
+    });
+    return unsub;
   }, []);
 
   const handleLaunch = async (): Promise<void> => {
@@ -407,11 +411,11 @@ function ScrcpyLauncher(): JSX.Element {
 
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+      <h2 className="section-title">
         <MonitorSmartphone className="h-3.5 w-3.5" />
         scrcpy 投屏
       </h2>
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+      <div className="card">
         {(!device || device.type !== 'adb') && (
           <div className="mb-3 flex items-center gap-2 rounded-md border border-amber-800/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-300">
             <WifiOff className="h-3.5 w-3.5 shrink-0" />
@@ -540,7 +544,7 @@ function NumInput({
   );
 }
 
-// ========== 离线 OTA 升级(对应 ota.bat,M5 新增) ==========
+// ========== 离线 OTA 升级(对应 ota.bat) ==========
 
 function OtaUpgrade(): JSX.Element {
   const device = useDeviceStore((s) => s.current);
@@ -587,12 +591,11 @@ function OtaUpgrade(): JSX.Element {
 
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+      <h2 className="section-title">
         <HardDriveDownload className="h-3.5 w-3.5" />
         离线 OTA 升级
-        <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-500">M5</span>
       </h2>
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+      <div className="card">
         <p className="mb-3 text-xs text-zinc-400">
           对应 ota.bat:检测 ADB 设备 → 读 innermodel/softversion → isv3 检测(V3 不支持离线 OTA)
           → adb root(必须含 "restarting",否则不在 QMMI)→ rm -rf /data/ota* → 推送 OTA zip 到
@@ -660,8 +663,8 @@ function OtaUpgrade(): JSX.Element {
             className={cn(
               'mt-3 flex items-center gap-2 rounded-md border p-3 text-xs',
               result.success
-                ? 'border-green-800/50 bg-green-950/20 text-green-300'
-                : 'border-red-800/50 bg-red-950/20 text-red-300',
+                ? 'alert-ok-color'
+                : 'alert-err-color',
             )}
           >
             {result.success ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> : <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}
@@ -673,7 +676,7 @@ function OtaUpgrade(): JSX.Element {
   );
 }
 
-// ========== Android 8.1 Root 后优化(对应 rootpro.bat,M5 新增) ==========
+// ========== Android 8.1 Root 后优化(对应 rootpro.bat) ==========
 
 function RootProOptimize(): JSX.Element {
   const device = useDeviceStore((s) => s.current);
@@ -710,12 +713,11 @@ function RootProOptimize(): JSX.Element {
 
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+      <h2 className="section-title">
         <ShieldCheck className="h-3.5 w-3.5" />
         Android 8.1 Root 后优化
-        <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-500">M5</span>
       </h2>
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+      <div className="card">
         <p className="mb-3 text-xs text-zinc-400">
           对应 rootpro.bat:仅支持 SDK=27(Android 8.1)。读取 innermodel/softversion → isv3 检测
           → pm path com.android.systemui → 可选安装拓展应用包/禁用模式切换桌面/拓展 magisk 模块。
@@ -808,8 +810,8 @@ function RootProOptimize(): JSX.Element {
             className={cn(
               'mt-3 flex items-center gap-2 rounded-md border p-3 text-xs',
               result.success
-                ? 'border-green-800/50 bg-green-950/20 text-green-300'
-                : 'border-red-800/50 bg-red-950/20 text-red-300',
+                ? 'alert-ok-color'
+                : 'alert-err-color',
             )}
           >
             {result.success ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> : <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}
@@ -825,7 +827,7 @@ function RootProOptimize(): JSX.Element {
   );
 }
 
-// ========== 驱动检测(对应 checkdriver.bat,M5 新增) ==========
+// ========== 驱动检测(对应 checkdriver.bat) ==========
 
 function DriverCheck(): JSX.Element {
   const [checking, setChecking] = useState(false);
@@ -878,12 +880,11 @@ function DriverCheck(): JSX.Element {
 
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+      <h2 className="section-title">
         <Cpu className="h-3.5 w-3.5" />
         驱动检测
-        <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-500">M5</span>
       </h2>
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+      <div className="card">
         <p className="mb-3 text-xs text-zinc-400">
           对应 checkdriver.bat:检查 Qualcomm 9008 / ADB / VC 运行库驱动是否已安装,缺失时自动安装。
         </p>
@@ -968,8 +969,8 @@ function DriverCheck(): JSX.Element {
             className={cn(
               'flex items-center gap-2 rounded-md border p-3 text-xs',
               result.success
-                ? 'border-green-800/50 bg-green-950/20 text-green-300'
-                : 'border-red-800/50 bg-red-950/20 text-red-300',
+                ? 'alert-ok-color'
+                : 'alert-err-color',
             )}
           >
             {result.success ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> : <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}
@@ -1023,7 +1024,7 @@ function DriverCard({
   );
 }
 
-// ========== .atbmod 模块(对应 Loadatbmod.bat,M5 新增) ==========
+// ========== .atbmod 模块(对应 Loadatbmod.bat) ==========
 
 function AtbmodManager(): JSX.Element {
   const [scanning, setScanning] = useState(false);
@@ -1107,12 +1108,11 @@ function AtbmodManager(): JSX.Element {
 
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+      <h2 className="section-title">
         <Package className="h-3.5 w-3.5" />
         .atbmod 模块
-        <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9px] text-zinc-500">M5</span>
       </h2>
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
+      <div className="card">
         <p className="mb-3 text-xs text-zinc-400">
           对应 Loadatbmod.bat:扫描 resources/bin/*.atbmod 文件 → 7z 解压 → 读 atbmod.prop
           → 执行 install.bat/install.exe → 重命名为 mod/&lt;modid&gt;/。
@@ -1134,8 +1134,8 @@ function AtbmodManager(): JSX.Element {
             className={cn(
               'mb-3 flex items-center gap-2 rounded-md border p-2.5 text-xs',
               result.success
-                ? 'border-green-800/50 bg-green-950/20 text-green-300'
-                : 'border-red-800/50 bg-red-950/20 text-red-300',
+                ? 'alert-ok-color'
+                : 'alert-err-color',
             )}
           >
             {result.success ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> : <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}

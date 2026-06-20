@@ -24,6 +24,14 @@ export interface DeviceInfo {
   innermodelName?: string; // 如 'Z7' = innermodel 'I25'
   platform?: 'otherpash' | 'v3pash' | 'z10';
   connectedAt?: number;
+  // 扩展属性(ADB 模式下读取)
+  cpuAbi?: string; // ro.product.cpu.abi(如 armeabi-v7a)
+  density?: string; // ro.sf.lcd_density(如 320)
+  batteryLevel?: number; // 电量百分比(0-100)
+  storageTotal?: number; // 存储总容量(字节)
+  storageAvailable?: number; // 可用存储(字节)
+  buildId?: string; // ro.build.id
+  buildDate?: string; // ro.build.date
 }
 
 // ========== 日志相关 ==========
@@ -223,6 +231,6 @@ export const APP_META = {
   authorQQGroup: '', // 交流 QQ 群(留空)
   authorWebsite: '', // GitHub 仓库地址(留空)
   authorEmail: '3038929349@qq.com',
-  // 原项目(仅在关于页提一句)
-  basedOn: 'AllToolBox 1.3.8fix1',
+  // 参考的项目(业务逻辑参考,非代码衍生)
+  basedOn: 'AllToolBox 1.3.8fix1(业务逻辑参考)',
 };

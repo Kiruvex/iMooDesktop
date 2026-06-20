@@ -53,7 +53,7 @@ export function EulaModal(): JSX.Element | null {
         {/* 标题栏 */}
         <div className="flex shrink-0 items-center justify-between border-b border-zinc-800 px-6 py-4">
           <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-blue-500" />
+            <FileText className="title-icon" />
             <h2 className="text-base font-semibold">最终用户许可协议</h2>
           </div>
           <span className="text-xs text-zinc-600">v1.1</span>

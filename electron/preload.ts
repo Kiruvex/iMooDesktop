@@ -62,6 +62,13 @@ const api = {
     stopAll: (): Promise<{ success: boolean }> => ipcRenderer.invoke('scrcpy:stop-all'),
     list: (): Promise<{ pid: number; opts: unknown; startedAt: number }[]> =>
       ipcRenderer.invoke('scrcpy:list'),
+    // 订阅进程变化事件(launch/exit),替代轮询
+    subscribe: (): Promise<void> => ipcRenderer.invoke('scrcpy:subscribe'),
+    onProcessChange: (cb: (data: { type: 'launch' | 'exit'; pid: number; code?: number }) => void) => {
+      const handler = (_: unknown, data: { type: 'launch' | 'exit'; pid: number; code?: number }): void => cb(data);
+      ipcRenderer.on('scrcpy:process-change', handler);
+      return () => ipcRenderer.removeListener('scrcpy:process-change', handler);
+    },
   },
 
   app: {
@@ -74,13 +81,13 @@ const api = {
       ipcRenderer.invoke('app:install', { apk, method }),
     uninstall: (pkg: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('app:uninstall', { pkg }),
-    // M5:Z10 解除安装限制(对应 z10openinst.bat)
+    // Z10 解除安装限制(对应 z10openinst.bat)
     unlockZ10: (): Promise<{
       success: boolean;
       steps: { name: string; status: string; message?: string }[];
       error?: string;
     }> => ipcRenderer.invoke('app:unlock-z10'),
-    // M5:QQ/微信开机自启(对应 qqwxautestart.bat)
+    // QQ/微信开机自启(对应 qqwxautestart.bat)
     enableAutoStart: (packages?: string[]): Promise<{
       success: boolean;
       results: { pkg: string; success: boolean; error?: string }[];
@@ -102,14 +109,14 @@ const api = {
       ipcRenderer.invoke('tools:wifi-connect', { ip, port }),
     wifiDisconnect: (ip: string, port?: number): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('tools:wifi-disconnect', { ip, port }),
-    // M5:离线 OTA 升级(对应 ota.bat)
+    // 离线 OTA 升级(对应 ota.bat)
     otaStart: (zipPath: string): Promise<{
       success: boolean;
       steps: { name: string; status: string; message?: string }[];
       scrcpyStarted: boolean;
       error?: string;
     }> => ipcRenderer.invoke('tools:ota-start', { zipPath }),
-    // M5:Android 8.1 Root 后优化(对应 rootpro.bat,SDK27 专属)
+    // Android 8.1 Root 后优化(对应 rootpro.bat,SDK27 专属)
     rootpro: (options: {
       installApks?: boolean;
       installDesktop?: boolean;
@@ -127,7 +134,7 @@ const api = {
       haveSystemUI?: boolean;
       error?: string;
     }> => ipcRenderer.invoke('tools:rootpro', options),
-    // M5:驱动检测(对应 checkdriver.bat)
+    // 驱动检测(对应 checkdriver.bat)
     checkDrivers: (): Promise<{
       success: boolean;
       status: { qualcomm: boolean; adb: boolean; vcRuntime: boolean };
@@ -139,7 +146,7 @@ const api = {
       steps: { name: string; status: string; message?: string }[];
       error?: string;
     }> => ipcRenderer.invoke('tools:install-drivers'),
-    // M5:.atbmod 模块(对应 Loadatbmod.bat)
+    // .atbmod 模块(对应 Loadatbmod.bat)
     atbmodScan: (): Promise<{
       success: boolean;
       files: { path: string; filename: string; size: number }[];
@@ -165,7 +172,7 @@ const api = {
     }> => ipcRenderer.invoke('tools:atbmod-list'),
     atbmodUninstall: (modid: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('tools:atbmod-uninstall', { modid }),
-    // M5:检查应用更新
+    // 检查应用更新
     checkAppUpdate: (): Promise<{
       hasUpdate: boolean;
       currentVersion: string;
@@ -194,7 +201,7 @@ const api = {
       ipcRenderer.invoke('magisk:enable', { id }),
     disable: (id: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('magisk:disable', { id }),
-    // M5:模块商店
+    // 模块商店
     storeSearch: (query: string): Promise<{ success: boolean; modules: StoreModule[] }> =>
       ipcRenderer.invoke('magisk:store-search', { query }),
     storeInstall: (module: StoreModule): Promise<{ success: boolean; error?: string }> =>
@@ -289,6 +296,11 @@ const api = {
       ipcRenderer.invoke('system:window-toggle-maximize'),
     windowClose: (): Promise<void> => ipcRenderer.invoke('system:window-close'),
     windowIsMaximized: (): Promise<boolean> => ipcRenderer.invoke('system:window-is-maximized'),
+    onWindowState: (cb: (state: { maximized: boolean }) => void) => {
+      const handler = (_: unknown, state: { maximized: boolean }): void => cb(state);
+      ipcRenderer.on('system:window-state', handler);
+      return () => ipcRenderer.removeListener('system:window-state', handler);
+    },
     openTerminal: (): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('system:open-terminal'),
   },
@@ -414,7 +426,7 @@ const api = {
       paths: { label: string; path: string; icon: string }[];
     }> => ipcRenderer.invoke('file:quick-paths'),
 
-    // ========== M6 新增 ==========
+    // ========== 文件管理增强 ==========
     listDevices: (): Promise<{
       success: boolean;
       devices: { serial: string; state: string; model?: string }[];
@@ -457,6 +469,23 @@ const api = {
     setKeepMtime: (enabled: boolean): Promise<{ success: boolean; keepMtime: boolean }> =>
       ipcRenderer.invoke('file:set-keep-mtime', { enabled }),
 
+    // APK 解析(不需要设备连接)
+    parseApk: (apkPath: string): Promise<{
+      packageName: string;
+      versionName?: string;
+      versionCode?: string;
+      minSdkVersion?: number;
+      targetSdkVersion?: number;
+      permissions: string[];
+      apkSize: number;
+      dexSize?: number;
+      abis: string[];
+      signer?: string;
+      label?: string;
+      iconBase64?: string;
+      iconMime?: string;
+    }> => ipcRenderer.invoke('file:parse-apk', { apkPath }),
+
     onTransferProgress: (cb: (p: {
       local: string;
       remote: string;
@@ -471,46 +500,12 @@ const api = {
     },
   },
 
-  // ========== edl-part:* 通道(EDL 分区管理,基于 QSaharaServer + fh_loader) ==========
+  // ========== edl-part:* 通道(EDL 分区管理,基于 edl-ng) ==========
   edlPartition: {
-    listModels: (): Promise<{
+    listLoaders: (): Promise<{
       success: boolean;
-      models: { innermodel: string; xmlPath: string; partitionCount: number }[];
-      error?: string;
-    }> => ipcRenderer.invoke('edl-part:list-models'),
-
-    listPartitions: (innermodel: string): Promise<{
-      success: boolean;
-      partitions: {
-        label: string;
-        filename: string;
-        startSector: number;
-        numSectors: number;
-        sizeBytes: number;
-        sizeInKb?: number;
-        lun: number;
-        sectorSize: number;
-      }[];
-      error?: string;
-    }> => ipcRenderer.invoke('edl-part:list-partitions', { innermodel }),
-
-    getPartitionInfo: (innermodel: string, label: string): Promise<{
-      success: boolean;
-      info: {
-        partition: {
-          label: string;
-          filename: string;
-          startSector: number;
-          numSectors: number;
-          sizeBytes: number;
-          sizeInKb?: number;
-          lun: number;
-          sectorSize: number;
-        };
-        isCritical: boolean;
-      } | null;
-      error?: string;
-    }> => ipcRenderer.invoke('edl-part:get-partition-info', { innermodel, label }),
+      loaders: { name: string; path: string; description: string }[];
+    }> => ipcRenderer.invoke('edl-part:list-loaders'),
 
     checkEdlDevice: (): Promise<{
       success: boolean;
@@ -519,47 +514,48 @@ const api = {
       error?: string;
     }> => ipcRenderer.invoke('edl-part:check-edl-device'),
 
+    printGpt: (loader: string): Promise<{
+      success: boolean;
+      partitions: {
+        label: string;
+        typeGuid: string;
+        uid: string;
+        firstLba: number;
+        lastLba: number;
+        sizeBytes: number;
+        lun: number;
+      }[];
+      storage?: { sectorSize: number; lunCount: number };
+      error?: string;
+    }> => ipcRenderer.invoke('edl-part:print-gpt', { loader }),
+
     backupPartition: (opts: {
-      innermodel: string;
+      loader: string;
       label: string;
       outputFile: string;
-      v3: boolean;
     }): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('edl-part:backup-partition', opts),
 
     restorePartition: (opts: {
-      innermodel: string;
+      loader: string;
       label: string;
       inputFile: string;
-      v3: boolean;
       backupBeforeRestore?: boolean;
       backupOutputDir?: string;
       verifyAfterRestore?: boolean;
-    }): Promise<{
-      success: boolean;
-      error?: string;
-      backupPath?: string;
-      verified?: {
-        success: boolean;
-        matched: boolean;
-        bytesRead: number;
-        bytesExpected: number;
-        error?: string;
-      };
-    }> => ipcRenderer.invoke('edl-part:restore-partition', opts),
+    }): Promise<{ success: boolean; error?: string; backupPath?: string }> =>
+      ipcRenderer.invoke('edl-part:restore-partition', opts),
 
     erasePartition: (opts: {
-      innermodel: string;
+      loader: string;
       label: string;
-      v3: boolean;
     }): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('edl-part:erase-partition', opts),
 
     verifyPartition: (opts: {
-      innermodel: string;
+      loader: string;
       label: string;
       expectedFile: string;
-      v3: boolean;
     }): Promise<{
       success: boolean;
       result: {
@@ -571,18 +567,14 @@ const api = {
       };
     }> => ipcRenderer.invoke('edl-part:verify-partition', opts),
 
-    resetDevice: (opts: {
-      innermodel: string;
-      v3: boolean;
-    }): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('edl-part:reset-device', opts),
+    resetDevice: (loader: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('edl-part:reset-device', { loader }),
 
     getHistory: (): Promise<{
       success: boolean;
       history: {
         id: string;
-        type: 'backup' | 'restore' | 'erase' | 'reset' | 'verify';
-        innermodel: string;
+        type: 'printgpt' | 'backup' | 'restore' | 'erase' | 'reset' | 'verify';
         label: string;
         timestamp: number;
         success: boolean;
@@ -598,6 +590,18 @@ const api = {
       const handler = (_: unknown, data: { msg: string; ts: number }): void => cb(data);
       ipcRenderer.on('edl-part:progress', handler);
       return () => ipcRenderer.removeListener('edl-part:progress', handler);
+    },
+
+    onTransferProgress: (cb: (p: {
+      operation: string;
+      percent: number;
+      transferredMiB: number;
+      totalMiB: number;
+      speed: string;
+    }) => void) => {
+      const handler = (_: unknown, p: unknown): void => cb(p as never);
+      ipcRenderer.on('edl-part:transfer-progress', handler);
+      return () => ipcRenderer.removeListener('edl-part:transfer-progress', handler);
     },
   },
 

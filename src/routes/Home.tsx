@@ -14,7 +14,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { MAIN_MENU, type MenuItem } from '../lib/menus';
-import { cn, formatDeviceType, formatTime } from '../lib/utils';
+import { cn, formatDeviceType, formatTime, formatBytes } from '../lib/utils';
 import { APP_META, type DeviceInfo } from '../../shared/types';
 import { useDeviceStore } from '../stores/deviceStore';
 import { api } from '../lib/api';
@@ -151,17 +151,30 @@ export function Home(): JSX.Element {
 // ========== 设备状态组件(原 Device.tsx) ==========
 
 function DeviceCard({ device }: { device: DeviceInfo }): JSX.Element {
+  // 存储容量格式化
+  const storageStr =
+    device.storageTotal !== undefined && device.storageAvailable !== undefined
+      ? `${formatBytes(device.storageAvailable)} / ${formatBytes(device.storageTotal)}`
+      : undefined;
+
   const rows: { label: string; value: string | undefined }[] = [
     { label: '设备类型', value: formatDeviceType(device.type) },
     { label: '序列号', value: device.serial },
     { label: 'COM 端口', value: device.port },
-    { label: '内部型号 (innermodel)', value: device.innermodel },
-    { label: '产品型号 (model)', value: device.model },
+    { label: '型号', value: device.innermodelName },
+    { label: '内部型号', value: device.innermodel },
+    { label: '产品型号', value: device.model },
     { label: 'Android 版本', value: device.androidVersion },
     { label: 'SDK 版本', value: device.sdkVersion },
     { label: '软件版本', value: device.softVersion },
     { label: 'V3 协议', value: device.isV3 === undefined ? undefined : device.isV3 ? '是' : '否' },
     { label: '平台', value: device.platform },
+    { label: 'CPU 架构', value: device.cpuAbi },
+    { label: '屏幕密度', value: device.density ? `${device.density} dpi` : undefined },
+    { label: '电量', value: device.batteryLevel !== undefined ? `${device.batteryLevel}%` : undefined },
+    { label: '存储可用', value: storageStr },
+    { label: 'Build ID', value: device.buildId },
+    { label: '构建时间', value: device.buildDate },
     { label: '连接时间', value: device.connectedAt ? formatTime(device.connectedAt) : undefined },
   ];
 
@@ -176,29 +189,47 @@ function DeviceCard({ device }: { device: DeviceInfo }): JSX.Element {
         )}
       >
         <DeviceIcon type={device.type} />
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="text-sm font-medium text-zinc-100">
-            {formatDeviceType(device.type)}
+            {device.innermodelName ?? formatDeviceType(device.type)}
             {device.port ? ` · ${device.port}` : ''}
           </div>
-          <div className="text-[11px] text-zinc-500">{device.serial}</div>
+          <div className="text-[11px] text-zinc-500">
+            {device.serial}
+            {device.batteryLevel !== undefined && (
+              <span className="ml-2 text-zinc-600">电量 {device.batteryLevel}%</span>
+            )}
+          </div>
         </div>
+        {device.batteryLevel !== undefined && (
+          <BatteryBadge level={device.batteryLevel} />
+        )}
       </div>
-      <div className="divide-y divide-zinc-800/60">
+      <div className="grid grid-cols-1 sm:grid-cols-2">
         {rows.map(
           (row) =>
             row.value !== undefined && (
               <div
                 key={row.label}
-                className="flex items-center justify-between px-4 py-2 text-xs"
+                className="flex items-center justify-between border-b border-zinc-800/60 px-4 py-2 text-xs"
               >
                 <span className="text-zinc-500">{row.label}</span>
-                <span className="font-mono text-zinc-200">{row.value}</span>
+                <span className="ml-2 truncate font-mono text-zinc-200" title={row.value}>
+                  {row.value}
+                </span>
               </div>
             ),
         )}
       </div>
     </div>
+  );
+}
+
+/** 电量徽章(颜色根据电量变化) */
+function BatteryBadge({ level }: { level: number }): JSX.Element {
+  const color = level > 50 ? 'text-green-400' : level > 20 ? 'text-amber-400' : 'text-red-400';
+  return (
+    <span className={cn('shrink-0 text-xs font-medium', color)}>{level}%</span>
   );
 }
 

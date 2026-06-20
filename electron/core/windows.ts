@@ -67,6 +67,14 @@ export function createMainWindow(): BrowserWindow {
     setMainWindow(null);
   });
 
+  // 窗口最大化状态变化事件(推送到渲染进程,替代前端轮询)
+  mainWindow.on('maximize', () => {
+    mainWindow?.webContents.send('system:window-state', { maximized: true });
+  });
+  mainWindow.on('unmaximize', () => {
+    mainWindow?.webContents.send('system:window-state', { maximized: false });
+  });
+
   return mainWindow;
 }
 
