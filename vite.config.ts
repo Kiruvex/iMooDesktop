@@ -3,6 +3,20 @@ import react from '@vitejs/plugin-react';
 import electron from 'vite-plugin-electron/simple';
 import path from 'node:path';
 
+// native addon 包,不能被 Vite 打包,运行时 require
+const nativeExternals = [
+  'electron',
+  'electron-log',
+  'electron-store',
+  'iconv-lite',
+  'usb',
+  '@node-usb/usb-win32-x64-msvc',
+  '@node-usb/usb-linux-x64-gnu',
+  '@node-usb/usb-linux-x64-musl',
+  '@node-usb/usb-darwin-x64',
+  '@node-usb/usb-darwin-arm64',
+];
+
 export default defineConfig({
   plugins: [
     react(),
@@ -13,7 +27,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron', 'electron-log', 'electron-store', 'iconv-lite', 'usb'],
+              external: nativeExternals,
             },
           },
         },
@@ -23,6 +37,9 @@ export default defineConfig({
         vite: {
           build: {
             outDir: 'dist-electron',
+            rollupOptions: {
+              external: nativeExternals,
+            },
           },
         },
       },

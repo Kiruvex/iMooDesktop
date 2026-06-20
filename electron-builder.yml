@@ -13,6 +13,8 @@ asarUnpack:
   - resources/bin/**
   - resources/edl/**
   - resources/scripts/**
+  - node_modules/usb/**
+  - node_modules/@node-usb/**
 win:
   target:
     - target: nsis
