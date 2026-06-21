@@ -15,8 +15,6 @@ asarUnpack:
   - resources/scripts/**
   - node_modules/usb/**
   - node_modules/@node-usb/**
-# 关闭差异包生成(加速构建,避免旧版本 patch 导致安装异常)
-differentialPackage: false
 win:
   target:
     - target: nsis
@@ -32,12 +30,15 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: iMooDesktop
-  # 卸载时不弹默认确认框(减少干扰弹窗)
-  disableDefaultUninstallPrompt: true
-  # 安装完成后运行应用(electron-builder 默认会 kill 掉运行中的同名进程再装,
-  # runAfterFinish=true 确保升级安装时旧实例被关闭,避免写 exe 时"重试/取消")
+  # 关闭差异包(避免旧版本 patch 文件导致升级安装异常)
+  differentialPackage: false
+  # 卸载时不弹默认欢迎页(减少干扰弹窗)
+  removeDefaultUninstallWelcomePage: true
+  # 安装完成后运行应用(配合 installer.nsh 的 taskkill 确保干净升级)
   runAfterFinish: true
-  # 不删用户数据(默认即 false,显式声明)
+  # 不删用户数据
   deleteAppDataOnUninstall: false
+  # 自定义 NSIS 脚本(安装前 taskkill 旧实例,避免写 exe 时"重试/取消")
+  include: build/installer.nsh
 portable:
   artifactName: ${productName}-${version}-portable.exe
