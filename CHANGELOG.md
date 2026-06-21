@@ -1,5 +1,21 @@
 # 更新日志
 
+## v1.1.1（2026-06-21）
+
+### Bug 修复
+
+- **安装器弹"重试/取消"警告框**：升级安装时旧版 iMooDesktop 进程占用 `iMooDesktop.exe`，NSIS 写入失败弹出"文件被占用，重试/取消"对话框。新增 `build/installer.nsh` 自定义 NSIS 脚本，在 `customInit`（`.onInit` 阶段，文件解压前）用 `taskkill /F` 强制关闭运行中的实例，避免文件占用
+- **安装器图标格式不规范**：`win.icon` 原为 PNG 格式，NSIS 原生需要 ICO。PNG→ICO 转换在某些 electron-builder 版本下会失败或生成不规范文件，导致 NSIS 编译告警。新生成 7 尺寸（16/24/32/48/64/128/256）`resources/assets/icon.ico`，`win.icon` 改用 `.ico`
+- **NSIS 差异包**：关闭 `differentialPackage`，避免旧版本 patch 文件导致升级安装异常
+- **卸载确认框**：启用 `disableDefaultUninstallPrompt`，卸载时不再弹默认确认框
+
+### 其他
+
+- 新增 `build/installer.nsh`（NSIS 自定义脚本）
+- 新增 `resources/assets/icon.ico`（7 尺寸 Windows 图标）
+
+---
+
 ## v1.1.0（2026-06-21）
 
 ### 新增功能
@@ -49,12 +65,14 @@
 - 删除死代码 `Placeholder.tsx`（未被引用的占位页）
 - 删除未实现的 `ResourceService.repair()` 占位方法
 - 清理所有 M1-M7 阶段标识（代码注释 30+ 处 + UI 徽章 7 个）
+- 项目关系措辞修正："基于 AllToolBox" → "参考 AllToolBox 业务逻辑"
 - SubprocessPool 顶部注释说明实际职责
 - `window.alert` 全部替换为 toast
 - 未处理的 Promise `.then()` 补 `.catch()`
 - GitHub Actions 升级 setup-bun@v2 + Node 22
 - 新增 `usb@3.0.0` 依赖（USB 事件驱动）
 - 新增 edl-ng 二进制（resources/bin/edl-ng/，7MB）
+- 新增 `CHANGELOG.md` / `FIX.md` / `EDL_PARTITION_PLAN.md` / `MERGE_PLAN.md`
 
 ---
 
