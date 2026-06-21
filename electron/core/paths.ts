@@ -27,7 +27,8 @@ class Paths {
     if (app.isPackaged) {
       return app.getAppPath();
     }
-    return path.resolve(__dirname, '..');
+    // dev 模式:__dirname = dist-electron/main/,要回 3 级到项目根
+    return path.resolve(__dirname, '..', '..');
   }
 
   /** resources/ 目录(包含 bin/edl/scripts/data/assets) */

@@ -9,7 +9,7 @@ import { paths } from '../core/paths';
 const logger = Logger.instance.child('FastbootService');
 
 class FastbootServiceClass {
-  private fastbootPath = paths.binFile('fastboot.exe');
+  private fastbootPath = process.platform === 'win32' ? paths.binFile('fastboot.exe') : 'fastboot';
 
   async devices(): Promise<string[]> {
     const result = await SubprocessPool.spawn({

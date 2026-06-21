@@ -8,6 +8,7 @@ import { useDeviceStore } from '../../stores/deviceStore';
 import { formatDeviceType, cn } from '../../lib/utils';
 import { WindowControls } from './WindowControls';
 import { APP_META } from '../../../shared/types';
+import iconUrl from '../../assets/icon.svg';
 
 export function TopBar(): JSX.Element {
   const device = useDeviceStore((s) => s.current);
@@ -19,7 +20,7 @@ export function TopBar(): JSX.Element {
     >
       {/* Logo(可拖拽区域) */}
       <div className="flex items-center gap-2.5 pl-1">
-        <img src="resources/assets/icon.svg" alt="iMooDesktop" className="h-7 w-7 rounded-md" />
+        <img src={iconUrl} alt="iMooDesktop" className="h-7 w-7 rounded-md" />
         <div className="flex items-baseline gap-2">
           <span className="text-[13px] font-semibold tracking-tight text-zinc-100">
             iMooDesktop

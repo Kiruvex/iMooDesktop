@@ -20,8 +20,8 @@ export function EulaModal(): JSX.Element | null {
       if (!settings) return;
       if (settings.showDisclaimerOnStart) {
         setVisible(true);
-        // 加载 EULA 文本
-        fetch('resources/data/EULA.txt')
+        // 加载 EULA 文本(打包后在 asar 内,用相对路径 ../resources/)
+        fetch('../resources/data/EULA.txt')
           .then((res) => res.text())
           .then((text) => {
             setEulaText(text);

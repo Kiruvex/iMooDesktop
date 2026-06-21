@@ -2864,7 +2864,7 @@ class RootServiceClass {
     while (Date.now() - start < 120000) {
       try {
         const result = await SubprocessPool.spawn({
-          cmd: paths.binFile('adb.exe'),
+          cmd: process.platform === 'win32' ? paths.binFile('adb.exe') : 'adb',
           args: ['get-state'],
           encoding: 'utf-8',
           timeout: TIMEOUT.device,
@@ -2900,7 +2900,7 @@ class RootServiceClass {
     // 注:原 .bat 用 20 秒 timeout 包装 adb sideload,超时后 sideload 仍在设备端继续
     try {
       await SubprocessPool.spawn({
-        cmd: paths.binFile('adb.exe'),
+        cmd: process.platform === 'win32' ? paths.binFile('adb.exe') : 'adb',
         args: ['sideload', dmZip],
         encoding: 'utf-8',
         timeout: TIMEOUT.transfer,
@@ -2915,7 +2915,7 @@ class RootServiceClass {
     // call adbdevice.bat noadb:断开 ADB 连接
     try {
       await SubprocessPool.spawn({
-        cmd: paths.binFile('adb.exe'),
+        cmd: process.platform === 'win32' ? paths.binFile('adb.exe') : 'adb',
         args: ['kill-server'],
         encoding: 'utf-8',
         timeout: TIMEOUT.device,
@@ -2923,7 +2923,7 @@ class RootServiceClass {
         silent: true,
       });
       await SubprocessPool.spawn({
-        cmd: paths.binFile('adb.exe'),
+        cmd: process.platform === 'win32' ? paths.binFile('adb.exe') : 'adb',
         args: ['start-server'],
         encoding: 'utf-8',
         timeout: TIMEOUT.device,

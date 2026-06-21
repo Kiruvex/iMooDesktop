@@ -109,7 +109,7 @@ class AppServiceClass {
     // 失败说明不在 QMMI 或没降级
     const rootOk = await runStep(2, async () => {
       const result = await SubprocessPool.spawn({
-        cmd: paths.binFile('adb.exe'),
+        cmd: process.platform === 'win32' ? paths.binFile('adb.exe') : 'adb',
         args: ['root'],
         encoding: 'gbk',
         timeout: TIMEOUT.shell,
@@ -221,7 +221,7 @@ class AppServiceClass {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       const result = await SubprocessPool.spawn({
-        cmd: paths.binFile('adb.exe'),
+        cmd: process.platform === 'win32' ? paths.binFile('adb.exe') : 'adb',
         args: ['install', '-r', '-t', '-d', apkPath],
         encoding: 'gbk',
         timeout: TIMEOUT.install,

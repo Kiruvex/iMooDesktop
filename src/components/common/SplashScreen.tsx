@@ -2,6 +2,7 @@
 // 应用加载时显示,1.5 秒后淡出
 
 import { useEffect, useState } from 'react';
+import iconUrl from '../../assets/icon.svg';
 
 export function SplashScreen(): JSX.Element | null {
   const [visible, setVisible] = useState(true);
@@ -31,7 +32,7 @@ export function SplashScreen(): JSX.Element | null {
 
       {/* Logo */}
       <div className="relative mb-6">
-        <img src="resources/assets/icon.svg" alt="iMooDesktop" className="h-20 w-20 rounded-2xl shadow-2xl shadow-blue-900/40" />
+        <img src={iconUrl} alt="iMooDesktop" className="h-20 w-20 rounded-2xl shadow-2xl shadow-blue-900/40" />
       </div>
 
       {/* 应用名 */}

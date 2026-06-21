@@ -474,7 +474,7 @@ class FileServiceClass extends EventEmitter {
   /** 列出所有已连接的 ADB 设备(对应 wkbin/JSleim 的 Multi-device support) */
   async listDevices(): Promise<{ serial: string; state: string; model?: string }[]> {
     const result = await SubprocessPool.spawn({
-      cmd: paths.binFile('adb.exe'),
+      cmd: process.platform === 'win32' ? paths.binFile('adb.exe') : 'adb',
       args: ['devices', '-l'],
       encoding: 'utf-8',
       timeout: TIMEOUT.device,
@@ -522,7 +522,7 @@ class FileServiceClass extends EventEmitter {
       args.push(cmd);
     }
     const result = await SubprocessPool.spawn({
-      cmd: paths.binFile('adb.exe'),
+      cmd: process.platform === 'win32' ? paths.binFile('adb.exe') : 'adb',
       args,
       encoding: 'gbk',
       timeout: opts.timeout ?? 30000,
@@ -543,7 +543,7 @@ class FileServiceClass extends EventEmitter {
   ): Promise<void> {
     let lastPercent = 0;
     await SubprocessPool.spawn({
-      cmd: paths.binFile('adb.exe'),
+      cmd: process.platform === 'win32' ? paths.binFile('adb.exe') : 'adb',
       args,
       encoding: 'utf-8',
       timeout: 0, // 不超时(大文件)

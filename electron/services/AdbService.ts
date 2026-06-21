@@ -12,7 +12,8 @@ import path from 'node:path';
 const logger = Logger.instance.child('AdbService');
 
 class AdbServiceClass {
-  private adbPath = paths.binFile('adb.exe');
+  // Windows: resources/bin/adb.exe,Linux/macOS: 系统 PATH 的 adb
+  private adbPath = process.platform === 'win32' ? paths.binFile('adb.exe') : 'adb';
 
   /** adb devices */
   async devices(): Promise<string[]> {

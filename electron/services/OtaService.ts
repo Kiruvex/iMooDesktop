@@ -106,7 +106,7 @@ class OtaServiceClass {
     // 失败说明不在 QMMI
     ok = await runStep(3, async () => {
       const result = await SubprocessPool.spawn({
-        cmd: paths.binFile('adb.exe'),
+        cmd: process.platform === 'win32' ? paths.binFile('adb.exe') : 'adb',
         args: ['root'],
         encoding: 'gbk',
         timeout: TIMEOUT.shell,

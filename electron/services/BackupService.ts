@@ -41,7 +41,7 @@ export interface AdbDdMatchResult {
 }
 
 class BackupServiceClass {
-  private adbPath = paths.binFile('adb.exe');
+  private adbPath = process.platform === 'win32' ? paths.binFile('adb.exe') : 'adb';
   private sevenZipPath = paths.binFile('7z.exe');
 
   // ========== DCIM 备份/恢复(对应 backup.bat :DCIM-backup / :DCIM-recover) ==========
