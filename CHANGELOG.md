@@ -65,14 +65,12 @@
 - 删除死代码 `Placeholder.tsx`（未被引用的占位页）
 - 删除未实现的 `ResourceService.repair()` 占位方法
 - 清理所有 M1-M7 阶段标识（代码注释 30+ 处 + UI 徽章 7 个）
-- 项目关系措辞修正："基于 AllToolBox" → "参考 AllToolBox 业务逻辑"
 - SubprocessPool 顶部注释说明实际职责
 - `window.alert` 全部替换为 toast
 - 未处理的 Promise `.then()` 补 `.catch()`
 - GitHub Actions 升级 setup-bun@v2 + Node 22
 - 新增 `usb@3.0.0` 依赖（USB 事件驱动）
 - 新增 edl-ng 二进制（resources/bin/edl-ng/，7MB）
-- 新增 `CHANGELOG.md` / `FIX.md` / `EDL_PARTITION_PLAN.md` / `MERGE_PLAN.md`
 
 ---
 
