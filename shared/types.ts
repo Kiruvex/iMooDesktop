@@ -222,7 +222,7 @@ export interface RootContext {
 // ========== 应用元信息 ==========
 export const APP_META = {
   name: 'iMooDesktop',
-  version: '1.0.0',
+  version: '1.1.0',
   buildDate: '2026-06-18',
   copyright: 'Copyright (C) 2026 Kiruvex',
   // 作者信息

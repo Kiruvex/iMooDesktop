@@ -37,6 +37,14 @@ export interface MagiskModule {
 
 class MagiskServiceClass {
   /**
+   * 转义 moduleId 防止命令注入
+   * moduleId 只允许字母数字下划线横线点,其他字符替换为 _
+   */
+  private escapeModuleId(id: string): string {
+    return id.replace(/[^a-zA-Z0-9_\-.]/g, '_');
+  }
+
+  /**
    * 列出已安装模块
    * 对应 magisklist.bat:push list_modules.sh → su -c sh → 解析输出
    */
@@ -232,8 +240,9 @@ class MagiskServiceClass {
     }
 
     // 检查模块是否存在(对应:adb shell "%suroot% '[ -d /data/adb/modules/%MODULE_ID% ] && echo EXISTS'")
+    const safeId = this.escapeModuleId(moduleId);
     const existsCheck = await AdbService.shell(
-      `[ -d /data/adb/modules/${moduleId} ] && echo EXISTS`,
+      `[ -d /data/adb/modules/${safeId} ] && echo EXISTS`,
       { timeout: TIMEOUT.device, root: true },
     );
     if (!existsCheck.includes('EXISTS')) {
@@ -254,14 +263,15 @@ class MagiskServiceClass {
   // touch /data/adb/modules/<id>/remove
   private async uninstallMark(moduleId: string): Promise<{ success: boolean; error?: string }> {
     try {
+      const safeId = this.escapeModuleId(moduleId);
       // 原:adb shell "%suroot% 'touch /data/adb/modules/%MODULE_ID%/remove'"
-      await AdbService.shell(`touch /data/adb/modules/${moduleId}/remove`, {
+      await AdbService.shell(`touch /data/adb/modules/${safeId}/remove`, {
         timeout: TIMEOUT.device,
         root: true,
       });
       // 验证(对应:[ -f remove ] && echo OK)
       const check = await AdbService.shell(
-        `[ -f /data/adb/modules/${moduleId}/remove ] && echo OK`,
+        `[ -f /data/adb/modules/${safeId}/remove ] && echo OK`,
         { timeout: TIMEOUT.device, root: true },
       );
       if (!check.includes('OK')) {
@@ -278,14 +288,15 @@ class MagiskServiceClass {
   // touch disable && sleep 1 && rm -rf
   private async uninstallDirect(moduleId: string): Promise<{ success: boolean; error?: string }> {
     try {
+      const safeId = this.escapeModuleId(moduleId);
       // 原:adb shell "%suroot% 'touch disable && sleep 1 && rm -rf /data/adb/modules/%MODULE_ID%'"
       await AdbService.shell(
-        `touch /data/adb/modules/${moduleId}/disable && sleep 1 && rm -rf /data/adb/modules/${moduleId}`,
+        `touch /data/adb/modules/${safeId}/disable && sleep 1 && rm -rf /data/adb/modules/${safeId}`,
         { timeout: TIMEOUT.shell, root: true },
       );
       // 验证
       const check = await AdbService.shell(
-        `[ ! -d /data/adb/modules/${moduleId} ] && echo OK`,
+        `[ ! -d /data/adb/modules/${safeId} ] && echo OK`,
         { timeout: TIMEOUT.device, root: true },
       );
       if (!check.includes('OK')) {
@@ -302,14 +313,15 @@ class MagiskServiceClass {
   // 执行 uninstall.sh + rm -rf
   private async uninstallScript(moduleId: string): Promise<{ success: boolean; error?: string }> {
     try {
+      const safeId = this.escapeModuleId(moduleId);
       // 原:adb shell "%suroot% 'if [ -f uninstall.sh ]; then sh uninstall.sh; fi; rm -rf %MODULE_ID%'"
       await AdbService.shell(
-        `if [ -f /data/adb/modules/${moduleId}/uninstall.sh ]; then sh /data/adb/modules/${moduleId}/uninstall.sh; else echo NO_SCRIPT; fi; rm -rf /data/adb/modules/${moduleId}`,
+        `if [ -f /data/adb/modules/${safeId}/uninstall.sh ]; then sh /data/adb/modules/${safeId}/uninstall.sh; else echo NO_SCRIPT; fi; rm -rf /data/adb/modules/${safeId}`,
         { timeout: TIMEOUT.fileOp, root: true },
       );
       // 验证
       const check = await AdbService.shell(
-        `[ ! -d /data/adb/modules/${moduleId} ] && echo OK`,
+        `[ ! -d /data/adb/modules/${safeId} ] && echo OK`,
         { timeout: TIMEOUT.device, root: true },
       );
       if (!check.includes('OK')) {
@@ -325,7 +337,8 @@ class MagiskServiceClass {
   /** 启用模块(touch disable 的反操作:rm disable) */
   async enable(moduleId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      await AdbService.shell(`rm /data/adb/modules/${moduleId}/disable`, {
+      const safeId = this.escapeModuleId(moduleId);
+      await AdbService.shell(`rm /data/adb/modules/${safeId}/disable`, {
         timeout: TIMEOUT.device,
         root: true,
       });
@@ -338,7 +351,8 @@ class MagiskServiceClass {
   /** 禁用模块(touch disable) */
   async disable(moduleId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      await AdbService.shell(`touch /data/adb/modules/${moduleId}/disable`, {
+      const safeId = this.escapeModuleId(moduleId);
+      await AdbService.shell(`touch /data/adb/modules/${safeId}/disable`, {
         timeout: TIMEOUT.device,
         root: true,
       });

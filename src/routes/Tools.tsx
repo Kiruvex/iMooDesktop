@@ -631,9 +631,9 @@ function OtaUpgrade(): JSX.Element {
         {/* 步骤进度 */}
         {steps.length > 0 && (
           <div className="mt-4 rounded-md border border-zinc-800 p-2">
-            {steps.map((step, i) => (
+            {steps.map((step) => (
               <div
-                key={i}
+                key={step.name}
                 className="flex items-center gap-2 border-b border-zinc-800/60 px-1 py-1.5 last:border-0"
               >
                 <div className="shrink-0">
@@ -776,9 +776,9 @@ function RootProOptimize(): JSX.Element {
         {/* 步骤进度 */}
         {result && result.steps.length > 0 && (
           <div className="mt-3 rounded-md border border-zinc-800 p-2">
-            {result.steps.map((step, i) => (
+            {result.steps.map((step) => (
               <div
-                key={i}
+                key={step.name}
                 className="flex items-center gap-2 border-b border-zinc-800/60 px-1 py-1.5 last:border-0"
               >
                 <div className="shrink-0">
@@ -935,9 +935,9 @@ function DriverCheck(): JSX.Element {
         {/* 安装步骤 */}
         {installSteps.length > 0 && (
           <div className="mb-3 rounded-md border border-zinc-800 p-2">
-            {installSteps.map((step, i) => (
+            {installSteps.map((step) => (
               <div
-                key={i}
+                key={step.name}
                 className="flex items-center gap-2 border-b border-zinc-800/60 px-1 py-1.5 last:border-0"
               >
                 <div className="shrink-0">

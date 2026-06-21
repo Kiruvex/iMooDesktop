@@ -78,9 +78,11 @@ class ScrcpyServiceClass extends EventEmitter {
 
     proc.on('exit', (code) => {
       logger.info(`scrcpy 退出(pid=${pid}, code=${code})`);
-      this.running.delete(pid);
-      // 推送 exit 事件
-      this.emit('process-change', { type: 'exit', pid, code: code ?? undefined } satisfies ScrcpyProcessChange);
+      // 只有还在 running 里时才 emit(stop() 已经删除并 emit 过的不再重复)
+      if (this.running.has(pid)) {
+        this.running.delete(pid);
+        this.emit('process-change', { type: 'exit', pid, code: code ?? undefined } satisfies ScrcpyProcessChange);
+      }
     });
 
     return pid;
@@ -93,14 +95,15 @@ class ScrcpyServiceClass extends EventEmitter {
       logger.warn(`scrcpy pid=${pid} 不存在`);
       return;
     }
+    // 先从 running 删除,这样 proc.on('exit') 不会再重复 emit
+    this.running.delete(pid);
     try {
       entry.process.kill();
       logger.info(`已停止 scrcpy pid=${pid}`);
     } catch (e) {
       logger.error(`停止 scrcpy 失败: ${(e as Error).message}`);
     }
-    this.running.delete(pid);
-    // stop 也会触发 exit 事件,但进程可能还没退出,这里先推送一次
+    // 推送 exit 事件(proc.on('exit') 里 running 已无此 pid,不会再 emit)
     this.emit('process-change', { type: 'exit', pid } satisfies ScrcpyProcessChange);
   }
 

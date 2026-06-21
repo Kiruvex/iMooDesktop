@@ -14,7 +14,7 @@ const DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'] || 'http://localhost:5
 let mainWindow: BrowserWindow | null = null;
 
 export function createMainWindow(): BrowserWindow {
-  const preload = path.join(__dirname, 'preload.js');
+  const preload = path.join(__dirname, '..', 'preload', 'preload.js');
   const opacity = config.get('windowOpacity') / 100;
 
   mainWindow = new BrowserWindow({

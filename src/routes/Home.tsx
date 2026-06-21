@@ -18,6 +18,7 @@ import { cn, formatDeviceType, formatTime, formatBytes } from '../lib/utils';
 import { APP_META, type DeviceInfo } from '../../shared/types';
 import { useDeviceStore } from '../stores/deviceStore';
 import { api } from '../lib/api';
+import { toast } from '../stores/toastStore';
 
 export function Home(): JSX.Element {
   const navigate = useNavigate();
@@ -26,7 +27,6 @@ export function Home(): JSX.Element {
 
   const handleClick = async (item: MenuItem): Promise<void> => {
     if (item.disabled) {
-      window.alert(`该功能将在 ${item.milestone} 阶段实现`);
       return;
     }
     if (item.to) {
@@ -35,7 +35,7 @@ export function Home(): JSX.Element {
       // 打开带 adb 环境的终端
       const res = await api.system.openTerminal();
       if (!res.success) {
-        window.alert(`打开终端失败: ${res.error}`);
+        toast.err(`打开终端失败: ${res.error}`);
       }
     }
   };
@@ -130,8 +130,8 @@ export function Home(): JSX.Element {
                   >
                     {item.label}
                     {item.disabled && (
-                      <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-zinc-400">
-                        {item.milestone}
+                      <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500">
+                        未开放
                       </span>
                     )}
                   </div>

@@ -623,9 +623,9 @@ export function Root(): JSX.Element {
               {ctx.logs.length === 0 ? (
                 <div className="text-muted">暂无日志</div>
               ) : (
-                ctx.logs.map((log, i) => (
+                ctx.logs.map((log) => (
                   <div
-                    key={i}
+                    key={log.ts}
                     className={cn(
                       'flex gap-2',
                       log.level === 'error' && 'text-red-400',

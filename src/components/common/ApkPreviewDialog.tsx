@@ -34,7 +34,7 @@ export function ApkPreviewDialog({ apkPath, onConfirm, onClose }: ApkPreviewDial
     setInfo(null);
     api.file
       .parseApk(apkPath)
-      .then((result) => setInfo(result))
+      .then((result) => setInfo(result)).catch(() => {})
       .catch((e) => setError((e as Error).message))
       .finally(() => setLoading(false));
   }, [apkPath]);

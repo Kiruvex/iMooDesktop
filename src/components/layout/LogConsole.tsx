@@ -193,8 +193,8 @@ export function LogConsole(): JSX.Element {
         {filteredLogs.length === 0 ? (
           <div className="py-10 text-center text-zinc-600">暂无日志</div>
         ) : (
-          filteredLogs.map((log, i) => (
-            <div key={i} className="flex gap-1.5 py-0.5 hover:bg-zinc-900/40">
+          filteredLogs.map((log) => (
+            <div key={log.ts} className="flex gap-1.5 py-0.5 hover:bg-zinc-900/40">
               <span className={cn('shrink-0 font-semibold', LEVEL_COLORS[log.level])}>
                 [{LEVEL_LABELS[log.level]}]
               </span>

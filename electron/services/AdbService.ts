@@ -113,9 +113,9 @@ class AdbServiceClass {
       logger.info(`data 安装: push ${apkPath} → ${remotePath}`);
       await this.push(apkPath, remotePath);
       // pm install -r 走 package manager(不需要 adb install 的权限检查)
-      const out = await this.shell(`pm install -r ${remotePath}`, { timeout: TIMEOUT.install });
+      const out = await this.shell(`pm install -r '${remotePath}'`, { timeout: TIMEOUT.install });
       // 清理临时文件
-      try { await this.shell(`rm -f ${remotePath}`, { timeout: TIMEOUT.device }); } catch { /* ignore */ }
+      try { await this.shell(`rm -f '${remotePath}'`, { timeout: TIMEOUT.device }); } catch { /* ignore */ }
       const success = out.includes('Success');
       if (!success) {
         logger.error(`data 安装失败: ${out.trim()}`);
@@ -135,7 +135,7 @@ class AdbServiceClass {
    */
   private async install3rd(apkPath: string): Promise<{ success: boolean; pkg?: string }> {
     try {
-      const fileName = path.basename(apkPath);
+      const fileName = path.basename(apkPath).replace(/[^a-zA-Z0-9._-]/g, '_');
       const remotePath = `/sdcard/${fileName}`;
       logger.info(`3install: push ${apkPath} → ${remotePath}`);
       await this.push(apkPath, remotePath);
@@ -178,8 +178,9 @@ class AdbServiceClass {
       const size = fs.statSync(apkPath).size;
       const fileName = path.basename(apkPath);
       // pm install-write -S <size> <sessionId> <splitName> <localPath>
+      const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
       const writeOut = await this.shell(
-        `pm install-write -S ${size} ${sessionId} ${fileName} ${apkPath}`,
+        `pm install-write -S ${size} ${sessionId} ${safeFileName} '${apkPath.replace(/'/g, "'\\''")}'`,
         { timeout: TIMEOUT.transfer },
       );
       if (!writeOut.includes('Success')) {
@@ -357,13 +358,18 @@ class AdbServiceClass {
 
   /** setprop */
   async setProp(prop: string, value: string): Promise<void> {
-    await this.shell(`setprop ${prop} ${value}`, { timeout: TIMEOUT.device });
+    // prop 和 value 转义防止注入
+    const safeProp = prop.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const safeValue = value.replace(/'/g, "'\\''");
+    await this.shell(`setprop ${safeProp} '${safeValue}'`, { timeout: TIMEOUT.device });
   }
 
   /** cmd package compile */
   // 原 ROOT-SDK27.bat:cmd package compile -m everything-profile -f com.xtc.i3launcher
   async cmdPackageCompile(pkg: string, mode = 'everything-profile'): Promise<void> {
-    await this.shell(`cmd package compile -m ${mode} -f ${pkg}`, { timeout: TIMEOUT.flash });
+    // pkg 是包名(如 com.xtc.i3launcher),转义防止注入
+    const safePkg = pkg.replace(/[^a-zA-Z0-9._-]/g, '_');
+    await this.shell(`cmd package compile -m ${mode} -f ${safePkg}`, { timeout: TIMEOUT.flash });
   }
 
   /** 打开充电可用 */

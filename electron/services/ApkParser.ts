@@ -108,17 +108,27 @@ function parseZipEntries(buffer: Buffer): ZipEntry[] {
 
 /** 从 ZIP 中提取指定文件的未压缩数据 */
 function extractZipEntry(buffer: Buffer, entry: ZipEntry): Buffer {
+  // 边界检查
+  if (entry.offset + 30 > buffer.length) {
+    throw new Error('ZIP entry offset 超出 buffer');
+  }
   // 读 local file header 获取实际数据偏移
   const localFilenameLength = buffer.readUInt16LE(entry.offset + 26);
   const localExtraLength = buffer.readUInt16LE(entry.offset + 28);
   const dataOffset = entry.offset + 30 + localFilenameLength + localExtraLength;
 
+  if (dataOffset > buffer.length) {
+    throw new Error('ZIP data offset 超出 buffer');
+  }
+
   if (entry.compressionMethod === 0) {
     // Stored(无压缩)
-    return buffer.subarray(dataOffset, dataOffset + entry.uncompressedSize);
+    const end = Math.min(dataOffset + entry.uncompressedSize, buffer.length);
+    return buffer.subarray(dataOffset, end);
   } else if (entry.compressionMethod === 8) {
     // Deflated
-    const compressed = buffer.subarray(dataOffset, dataOffset + entry.compressedSize);
+    const end = Math.min(dataOffset + entry.compressedSize, buffer.length);
+    const compressed = buffer.subarray(dataOffset, end);
     return inflateSync(compressed);
   }
   throw new Error(`不支持的压缩方法: ${entry.compressionMethod}`);

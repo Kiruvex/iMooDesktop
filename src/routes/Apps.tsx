@@ -297,9 +297,9 @@ function Z10Unlock(): JSX.Element {
               )}
               {result.steps.length > 0 && (
                 <div className="rounded-md border border-zinc-800 p-2">
-                  {result.steps.map((step, i) => (
+                  {result.steps.map((step) => (
                     <div
-                      key={i}
+                      key={step.name}
                       className="flex items-center gap-2 border-b border-zinc-800/60 px-1 py-1.5 last:border-0"
                     >
                       <div className="shrink-0">

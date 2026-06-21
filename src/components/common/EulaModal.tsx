@@ -17,6 +17,7 @@ export function EulaModal(): JSX.Element | null {
     // 如果 showDisclaimerOnStart=false,说明用户已同意过,不再显示 EULA
     // 如果 showDisclaimerOnStart=true(首次),显示 EULA
     api.system.getSettings().then((settings) => {
+      if (!settings) return;
       if (settings.showDisclaimerOnStart) {
         setVisible(true);
         // 加载 EULA 文本
@@ -31,7 +32,7 @@ export function EulaModal(): JSX.Element | null {
             setLoading(false);
           });
       }
-    });
+    }).catch(() => {});
   }, []);
 
   if (!visible) return null;

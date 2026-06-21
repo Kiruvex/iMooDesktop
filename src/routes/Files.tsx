@@ -155,7 +155,7 @@ export function Files(): JSX.Element {
 
   // 加载快捷路径
   useEffect(() => {
-    api.file.quickPaths().then((r) => {
+    api.file.quickPaths().then((r) => { if (r.success)
       if (r.success) setQuickPaths(r.paths);
     });
     // 加载书签
@@ -250,7 +250,7 @@ export function Files(): JSX.Element {
       if (path.startsWith('/sdcard') || path.startsWith('/storage')) {
         api.file.diskInfo(path).then((r) => {
           if (r.success && r.info) setDisk(r.info);
-        });
+        }).catch(() => {});
       }
     },
     [device, histIdx, selectedSerial],

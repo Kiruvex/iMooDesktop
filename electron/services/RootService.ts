@@ -878,7 +878,9 @@ class RootServiceClass {
       throw new Error('需要 ADB 模式设备');
     }
     // 原 root.bat:134:adb shell getprop ro.product.innermodel
-    const innermodel = await AdbService.getprop('ro.product.innermodel');
+    // 清洗 innermodel 防止路径遍历(设备端可伪造 prop 值)
+    const rawInnermodel = await AdbService.getprop('ro.product.innermodel');
+    const innermodel = rawInnermodel.replace(/[^a-zA-Z0-9_]/g, '');
     ctx.innermodel = innermodel;
     this.log(ctx, 'info', `设备 innermodel: ${innermodel}`);
 

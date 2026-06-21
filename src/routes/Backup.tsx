@@ -377,7 +377,7 @@ export function Backup(): JSX.Element {
             </div>
             <div className="max-h-32 overflow-y-auto font-mono text-[10px] leading-relaxed text-zinc-400">
               {progressLines.map((line, i) => (
-                <div key={i} className="truncate">
+                <div key={`${i}-${line.slice(0,20)}`} className="truncate">
                   <span className="text-muted">[{new Date().toLocaleTimeString()}]</span> {line}
                 </div>
               ))}

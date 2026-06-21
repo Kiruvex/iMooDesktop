@@ -556,7 +556,7 @@ export function EdlPartitions(): JSX.Element {
             <span
               onClick={(e) => {
                 e.stopPropagation();
-                void api.edlPartition.clearHistory().then(() => void refreshHistory());
+                void api.edlPartition.clearHistory().then(() => void refreshHistory()).catch(() => {});
               }}
               className="ml-auto rounded px-2 py-0.5 text-zinc-500 hover:bg-zinc-800 hover:text-red-400"
             >

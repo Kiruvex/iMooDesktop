@@ -57,8 +57,8 @@ export function Logs(): JSX.Element {
         {logs.length === 0 ? (
           <div className="py-20 text-center text-zinc-600">暂无日志</div>
         ) : (
-          logs.map((log, i) => (
-            <div key={i} className="flex gap-2 py-0.5 hover:bg-zinc-900/50">
+          logs.map((log) => (
+            <div key={log.ts} className="flex gap-2 py-0.5 hover:bg-zinc-900/50">
               <span className="shrink-0 text-zinc-600">{formatTime(log.ts)}</span>
               <span className={cn('shrink-0 font-semibold', LEVEL_COLORS[log.level])}>
                 {log.level.toUpperCase().padEnd(5)}
