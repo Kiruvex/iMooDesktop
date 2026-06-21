@@ -16,8 +16,7 @@ if (!ensureSingleInstance()) {
   process.exit(0);
 }
 
-// 禁用硬件加速可能引起的 GPU 进程崩溃(Electron 33+ 有时出现)
-app.disableHardwareAcceleration();
+// 保留硬件加速(transparent:false 后不需要禁用)
 
 // 日志初始化
 const logger = Logger.instance;

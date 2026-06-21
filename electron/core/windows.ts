@@ -24,14 +24,11 @@ export function createMainWindow(): BrowserWindow {
     minHeight: 600,
     show: false,
     opacity,
-    backgroundColor: '#00000000', // 透明(配合圆角)
+    backgroundColor: '#0a0a0b',
     title: 'iMooDesktop',
     icon: paths.icon,
-    // 自定义边框:Windows/Linux 无边框(不支持 macOS)
     frame: false,
     titleBarStyle: 'hidden',
-    // 透明窗口 + 圆角(配合 CSS border-radius)
-    transparent: true,
     webPreferences: {
       preload,
       contextIsolation: true,
